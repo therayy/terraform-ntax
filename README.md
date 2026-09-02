@@ -2,447 +2,244 @@
 
 <!-- markdownlint-disable MD013 MD024 -->
 
-Trainer runbook for a phased HCP Terraform and Vault workshop series.
+Trainer runbook for a three-session HCP Terraform and Vault enablement series.
 
 ## How to use this guide
 
-This is written for a trainer with limited Terraform and Vault experience. Do not
-attempt the exercises for the first time during a customer session. Run every lab
-yourself, capture expected screenshots, and keep a recorded or screenshot-based
-backup for each demonstration.
+This guide is written for a trainer with limited Terraform and Vault experience.
+It tells you what to define, what to demonstrate, what attendees should practice,
+and how to check their understanding.
 
-The program uses one continuous pilot:
+Do not attempt a lab for the first time in front of the customer. Complete every
+walkthrough twice, save screenshots of the successful result, and keep the
+screenshots open as a backup during delivery.
 
-> Manage one team configuration in the development Vault cluster with reusable
-> Terraform code, version-controlled inputs, review, security checks, approval,
-> state management, and drift detection.
+The continuous pilot is intentionally small:
 
-The pilot is deliberately small. Do not begin by importing all 60-65 existing
-team namespaces.
+> Use reusable Terraform code and non-sensitive JSON input to manage one team
+> configuration in the development Vault cluster through a reviewed and
+> approval-controlled HCP Terraform workflow.
+
+Do not begin by importing all 60-65 existing Vault namespaces.
 
 ## Confirmed customer baseline
 
 - The team already uses HCP Terraform workspaces and HCP-managed state.
 - Terraform code is stored and peer-reviewed in GitHub.
-- Most HCP Terraform runs are currently started through the Terraform CLI.
-- The target is a more formal VCS-driven workflow.
+- Most runs are currently started from the Terraform CLI.
+- The team wants to move toward VCS-driven HCP Terraform runs.
 - CI is moving from CircleCI to Jenkins.
 - Vault Enterprise has separate development and production clusters.
 - Vault contains approximately 60-65 team namespaces.
-- Current Vault automation uses Python libraries and some manual operations.
-- The relevant Vault resources are not currently managed in Terraform state.
+- Current Vault automation uses Python libraries and manual operations.
+- The requested Vault resources are not currently managed in Terraform state.
 - The team has mixed foundational and intermediate Terraform experience.
-- The immediate goal is Vault standardization. Broader enterprise governance is
-  a future workstream.
+- Development and production are not identical. A team may exist in
+  development, production, or both.
+- The first goal is consistent Vault automation. Wider Terraform governance is
+  a later workstream.
 
 ## Training outcomes
 
-By the end of the series, attendees should be able to:
+By the end of the three sessions, attendees should be able to:
 
 1. Explain configuration, providers, resources, data sources, plans, applies,
-   and state.
-2. Explain the difference between Terraform Community and HCP Terraform.
-3. Build and consume a small reusable Vault module.
-4. Drive team configuration from non-sensitive JSON inputs.
-5. Import an existing Vault resource safely.
-6. Use a `moved` block when refactoring an existing resource address.
-7. Explain the target GitHub, Jenkins, and HCP Terraform workflow.
-8. Explain the difference between Agent connectivity and OIDC authentication.
-9. Place static scanning, run tasks, policy checks, Vault EGP, and drift
-   detection in the correct layers.
-10. Explain how projects, workspaces, teams, policies, and approved modules
-    support federated governance.
+   state, modules, imports, and moved blocks.
+2. Build a small reusable Vault module driven by non-sensitive JSON input.
+3. Import one existing Vault resource and reconcile the first plan safely.
+4. Explain appropriate workspace and state boundaries.
+5. Explain the target GitHub, Jenkins, and HCP Terraform workflow.
+6. Distinguish Agent connectivity from OIDC authentication.
+7. Place static scans, run tasks, policy checks, Vault EGP, and drift detection
+   in the correct control layers.
+8. Explain the shared governance model based on approved modules, policies,
+   RBAC, and delegated team ownership.
 
-## Scope boundaries
+## What is and is not included
 
 ### Included
 
 - Terraform and HCP Terraform baseline review
 - Vault provider fundamentals
-- Modules, JSON inputs, `for_each`, conditions, validations, and templates
-- Import blocks, CLI import, generated configuration, data sources, and moved
+- Modules, JSON input, loops, conditions, validation, and templates
+- CLI import, import blocks, generated configuration, data sources, and moved
   blocks
-- VCS-driven HCP Terraform runs
-- Jenkins-based validation and static scanning
-- Workspace and state boundaries
+- Workspace and state design
+- GitHub, Jenkins, and VCS-driven HCP Terraform runs
 - HCP Terraform Agents and Vault OIDC dynamic credentials
-- Approvals, run tasks, policy enforcement, and health assessments
-- Private registry, RBAC, multi-tenancy, and delegated governance
-- Infragraph overview
+- Security scanning, policies, approvals, and drift detection
+- Private registry, RBAC, delegated governance, and Infragraph overview
 
 ### Not included in the initial pilot
 
 - Production changes
 - Bulk import of all existing Vault resources
-- Vault cluster installation or upgrades
-- Disaster recovery or performance replication configuration
-- Full Okta group mapping
-- Full EGP/RGP policy redesign
-- Scanner product evaluation or procurement
-- Periodic inactive-entity cleanup
-- Emergency bulk disable or enable operations
-- Upgrade qualification and functional testing
-- One-time data migration orchestration
+- Vault installation, upgrade, DR, or performance replication
+- Full Okta identity mapping
+- Full EGP or RGP redesign
+- Scanner procurement or a full scanner comparison
+- Scheduled cleanup or inactive-entity deletion
+- Emergency bulk actions
+- Upgrade testing or one-time data migration orchestration
 
-The excluded operational activities may use Vault APIs, scripts, Jenkins jobs,
-or another orchestration platform. Terraform should manage desired state, not
-become a general-purpose job runner.
+Terraform should manage desired state. Scheduled cleanup, runtime decisions,
+testing, and emergency operations belong in separately governed scripts,
+Jenkins jobs, or Vault API workflows.
 
 ## Program structure
 
-| Session | Duration | Focus | Practical result |
-| --- | ---: | --- | --- |
-| 1 | 60 minutes | Terraform and HCP Terraform baseline | Read a plan and explain state |
-| 2 | 60 minutes | Vault modules and JSON configuration | Build reusable Vault configuration |
-| 3 | 60 minutes | Import and refactoring | Adopt one existing resource safely |
-| 4 | 60 minutes | HCP workflow, security, and drift | Walk through the governed run lifecycle |
-| 5 | 60 minutes | Registry, RBAC, governance, and Infragraph | Define the scale-out operating model |
+This version reduces the program from five 60-minute sessions to three
+90-minute sessions. Each session uses the same learning structure.
 
-If only three sessions are approved, combine Sessions 1 and 2, keep Session 3
-separate, and combine Sessions 4 and 5. Do not remove the import session or the
-security distinctions.
+| Session | Topic | Definition | Trainer walkthrough | Attendee practice | Quiz and close |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | Foundations and reusable Vault configuration | 20 min | 30 min | 30 min | 10 min |
+| 2 | Import, refactoring, workspace, and state design | 20 min | 30 min | 30 min | 10 min |
+| 3 | VCS workflow, security, drift, and governance | 20 min | 30 min | 30 min | 10 min |
+
+If only 60 minutes is available, keep the definition and trainer walkthrough in
+the live session. Assign practice and the quiz as follow-up work. Do not rush an
+import or production-connected demonstration.
 
 ## Target pattern
 
-The customer does not have a mandatory dev-to-prod promotion model. A team can
-exist in development, production, or both. The same approved module can be used
-with separate environment configuration, workspaces, state, and approvals.
+The same approved module can be used with separate environment configuration,
+workspaces, state, and approvals. Development is not a mandatory gateway to
+production because the customer environments are not identical.
 
 ```mermaid
 flowchart TD
-    A["Approved Vault module version"] --> B["Environment-specific team configuration"]
+    A["Approved Vault module"] --> B["Environment configuration"]
     B --> C["GitHub pull request"]
-    C --> D["Jenkins validation and IaC scan"]
-    D --> E["HCP Terraform speculative plan"]
-    E --> F["Peer review and merge"]
-    F --> G{"Configured target"}
-    G -->|Development| H["Vault Dev workspace"]
-    G -->|Production| I["Vault Production workspace"]
-    H --> J["Plan, policies, approval, Agent and OIDC"]
-    I --> K["Plan, policies, approval, Agent and OIDC"]
-    J --> L["Development Vault and state"]
-    K --> M["Production Vault and state"]
-    L --> N["Health assessments"]
-    M --> N
+    C --> D["Jenkins validation and scan"]
+    D --> E["HCP Terraform plan and review"]
+    E --> F{"Selected environment"}
+    F -->|Dev| G["Dev workspace and Vault"]
+    F -->|Prod| H["Prod workspace and Vault"]
+    G --> I["State and health assessment"]
+    H --> I
 ```
 
-## Before you teach anything
+## Prerequisites
 
 ### Customer prerequisites
 
-Confirm these at least five business days before the first technical demo:
+Confirm these at least five business days before the first live lab:
 
-- [ ] Named development Vault pilot namespace or pilot team
-- [ ] Exact resources included in the pilot
+- [ ] One development Vault pilot team or namespace
+- [ ] Exact Vault resources included in the pilot
 - [ ] HCP Terraform organization and project names
-- [ ] GitHub repository for the pilot
-- [ ] Jenkins runner with Terraform and the selected scanner installed
-- [ ] Development Vault endpoint and CA chain
+- [ ] Pilot GitHub repository
+- [ ] Jenkins runner with Terraform and the chosen IaC scanner
+- [ ] Development Vault address and CA chain
 - [ ] HCP Terraform Agent pool with network access to development Vault
-- [ ] Vault administrator available for the authentication session
+- [ ] Vault administrator available for the security discussion
 - [ ] Approved Vault role and least-privilege policy design
-- [ ] Module owner and backup owner
-- [ ] Development approvers
-- [ ] Approved static scanner, such as standalone Trivy, Checkov, or Cycode
-- [ ] Confirmation that no secrets will be placed in JSON or Git
+- [ ] Module owner, backup owner, and development approver
+- [ ] Confirmation that JSON and Git will contain no secrets
 
-If Agent connectivity or Vault authentication is not ready, demonstrate the
-workflow using screenshots and run the local backup lab instead. Do not attempt
-to fix customer network or identity configuration live.
+If the customer environment is not ready, use the disposable local lab and the
+prepared HCP Terraform screenshots. Do not troubleshoot customer networking or
+identity live.
 
 ### Trainer prerequisites
 
 - [ ] Install Terraform CLI 1.5 or later.
-- [ ] Install Git.
-- [ ] Install Vault CLI.
-- [ ] Install Docker or another disposable container runtime.
-- [ ] Complete the local Terraform baseline lab twice.
-- [ ] Complete the local Vault provider lab twice.
-- [ ] Complete the import and moved-block lab twice.
-- [ ] Rehearse each customer-facing explanation aloud.
-- [ ] Save screenshots of every successful step.
-- [ ] Prepare a clean repository before each session.
-- [ ] Have a Vault SME review the Enterprise namespace and OIDC sections.
+- [ ] Install Git, Vault CLI, and Docker.
+- [ ] Complete every lab in this guide twice.
+- [ ] Save screenshots of each successful step.
+- [ ] Prepare a clean lab directory before each session.
+- [ ] Rehearse each definition in plain language.
+- [ ] Ask a Vault specialist to review Enterprise namespace and OIDC content.
+- [ ] Never use a production Vault token or production workspace in training.
 
-## Critical concepts for the trainer
+## Trainer glossary
 
-| Term | Simple explanation |
+| Term | Plain-language definition |
 | --- | --- |
-| Configuration | The Terraform files that describe the desired result. |
+| Configuration | Terraform files that describe the intended result. |
 | Provider | The plugin Terraform uses to call an API, such as Vault. |
-| Resource | Something Terraform creates or manages. |
-| Data source | Read-only information queried from an API. It does not import or own the object. |
-| State | Terraform's record that maps resource addresses to real objects. |
-| Plan | A preview of the changes Terraform proposes. |
+| Resource | An object Terraform creates or manages. |
+| Data source | Read-only information queried from an API. It does not manage the object. |
+| State | Terraform's record mapping resource addresses to real objects. |
+| Plan | A preview of proposed changes. |
 | Apply | Execution of an approved plan. |
 | Module | Reusable Terraform configuration with defined inputs and outputs. |
-| Import | Connects an existing object to a Terraform resource address in state. |
-| Moved block | Changes a Terraform resource address without recreating the object. |
+| Import | Connects an existing object to a resource address in state. |
+| Moved block | Changes a resource address without recreating the object. |
 | Workspace | An HCP Terraform execution and state boundary. |
-| Project | An HCP Terraform grouping and access boundary for workspaces and Stacks. |
+| Project | An HCP Terraform grouping and access boundary. |
 | Agent | Executes HCP Terraform runs inside a private network. |
-| OIDC dynamic credentials | Short-lived identity used by a run to authenticate to Vault. |
+| OIDC dynamic credentials | Short-lived identity used by a run to authenticate. |
 | Run task | An external integration called during an HCP Terraform run. |
-| Health assessment | Periodic drift detection and continuous validation in HCP Terraform. |
+| Health assessment | HCP Terraform checks for drift and continuous validation. |
 
-Remember these corrections:
-
-- Modules do not know the existing state. State tracks deployed objects.
-- Data sources do not import or manage resources.
-- Import does not guarantee a no-change plan.
-- Agents provide network reachability. OIDC provides authentication.
-- Run tasks do not promote environments.
-- Production repetition is intentional because production has separate state
-  and approval boundaries.
-- HCP Terraform drift detection identifies configuration drift. It is not an
-  automatic remediation engine.
-- Sensitive variables redact display. They do not automatically remove values
-  from state.
-
-## Session 1: Terraform and HCP Terraform baseline
+## Session 1: Foundations and reusable Vault configuration
 
 ### Session objective
 
-Attendees will understand the Terraform lifecycle and how HCP Terraform adds
-remote execution, shared state, VCS integration, approvals, RBAC, policies, and
-audit history.
+Attendees will understand the Terraform lifecycle and build a small Vault
+module that reads non-sensitive team configuration from JSON.
 
-### Timing
+### Part 1: Definition - 20 minutes
 
-| Time | Activity |
-| --- | --- |
-| 0-5 | Objectives and customer baseline |
-| 5-15 | Configuration, provider, resource, plan, apply, and state |
-| 15-25 | Terraform Community versus HCP Terraform |
-| 25-40 | Local baseline demonstration |
-| 40-50 | Target Vault workflow and workspace boundaries |
-| 50-60 | Questions and checkpoint |
+#### What to say
 
-### Opening script
+> Terraform configuration defines the desired result. A provider lets
+> Terraform call an API. Resources are objects Terraform manages. State records
+> which real objects belong to which Terraform resource addresses. A plan
+> previews the difference, and an apply performs an approved change.
 
-Say:
-
-> Today is a short level set. Your team already uses HCP Terraform, so this is
-> not a full beginner class. We will establish a shared vocabulary, review the
-> plan and apply lifecycle, and connect those concepts to the Vault pilot.
-
-Then say:
-
-> Terraform configuration describes the desired state. The provider calls the
-> target API. Terraform compares configuration, state, and the real object to
-> create a plan. Apply executes the approved plan and updates state.
-
-### Core lifecycle
+Draw or show this lifecycle:
 
 ```mermaid
 flowchart TD
-    A["Write configuration"] --> B["terraform init"]
-    B --> C["terraform plan"]
+    A["Write configuration"] --> B["Initialize"]
+    B --> C["Plan"]
     C --> D{"Plan acceptable?"}
     D -->|No| A
-    D -->|Yes| E["terraform apply"]
-    E --> F["Real object and state updated"]
+    D -->|Yes| E["Apply"]
+    E --> F["Object and state updated"]
 ```
 
-### Demo 1: A provider-free Terraform example
+Explain these four points:
 
-This lab uses the built-in `terraform_data` resource. It teaches the workflow
-without cloud credentials or customer infrastructure.
+1. Configuration is the intended result. State is Terraform's tracking record.
+2. A resource manages an object. A data source only reads information.
+3. A module packages a repeated pattern. It does not contain or discover state.
+4. HCP Terraform adds managed execution, state, VCS integration, RBAC,
+   policies, approvals, run history, and health assessments.
 
-#### Step 1: Create a working directory
-
-```bash
-mkdir terraform-baseline
-cd terraform-baseline
-```
-
-#### Step 2: Create `versions.tf`
-
-```hcl
-terraform {
-  required_version = ">= 1.5.0"
-}
-```
-
-Explain:
-
-- `required_version` prevents the lab from running on an unsupported Terraform
-  version.
-- There is no external provider because `terraform_data` is built into
-  Terraform.
-
-#### Step 3: Create `variables.tf`
-
-```hcl
-variable "team_name" {
-  description = "Name of the team requesting onboarding."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{2,30}$", var.team_name))
-    error_message = "Use 3-31 lowercase letters, numbers, or hyphens."
-  }
-}
-
-variable "environment" {
-  description = "Target environment."
-  type        = string
-
-  validation {
-    condition     = contains(["dev", "prod"], var.environment)
-    error_message = "Environment must be dev or prod."
-  }
-}
-```
-
-#### Step 4: Create `main.tf`
-
-```hcl
-resource "terraform_data" "team_request" {
-  input = {
-    team_name   = var.team_name
-    environment = var.environment
-  }
-}
-
-output "request" {
-  description = "Validated onboarding request."
-  value       = terraform_data.team_request.output
-}
-```
-
-#### Step 5: Create `terraform.tfvars`
-
-```hcl
-team_name   = "payments"
-environment = "dev"
-```
-
-#### Step 6: Run the workflow
-
-```bash
-terraform version
-terraform init
-terraform fmt -check
-terraform validate
-terraform plan -out=tfplan
-terraform apply tfplan
-terraform state list
-terraform output
-```
-
-Expected result:
-
-```text
-terraform_data.team_request
-```
-
-The output should show `payments` and `dev`.
-
-#### Step 7: Demonstrate a change
-
-Change `team_name` in `terraform.tfvars` to `analytics`, then run:
-
-```bash
-terraform plan
-```
-
-Explain the symbols in the plan. Do not apply until the class identifies the
-expected change.
-
-#### Step 8: Demonstrate validation
-
-Change the team name to `Payments Team`, then run:
-
-```bash
-terraform plan
-```
-
-Expected result: Terraform rejects the input validation. Restore the value to
-`payments` afterward.
-
-#### Step 9: Clean up
-
-```bash
-terraform destroy
-```
-
-This only removes the local `terraform_data` resource from state.
-
-### Terraform Community versus HCP Terraform
+#### Terraform Community and HCP Terraform
 
 | Capability | Terraform Community | HCP Terraform |
 | --- | --- | --- |
-| Terraform language and CLI | Yes | Yes |
-| Local execution | Yes | Optional |
-| Shared remote execution | External setup required | Built in |
-| Shared state and locking | External backend required | Built in |
-| VCS-triggered runs | External CI required | Built in |
-| Team RBAC | External | Built in by edition |
-| Private registry | External | Built in |
-| Policy enforcement | External | Built in by edition |
-| Health assessments | No | Available by edition |
+| Terraform language and CLI | Included | Included |
+| Shared remote execution | Requires external setup | Built in |
+| Managed state and locking | Requires a backend | Built in |
+| VCS-triggered runs | Requires external automation | Built in |
+| Team RBAC and approvals | External | Built in by edition |
+| Private registry and policies | External | Built in by edition |
+| Health assessments | Not included | Available by edition |
 
-### Session checkpoint questions
+#### Module design for this pilot
 
-Ask attendees:
+Use this separation:
 
-1. What is the difference between configuration and state?
-2. What does a plan show?
-3. Why should production state be separate from development state?
-4. What does HCP Terraform add to the CLI workflow?
+| Location | Contains | Must not contain |
+| --- | --- | --- |
+| Reusable module | Resource pattern, validation, defaults, outputs | Customer secrets or environment ownership data |
+| JSON input | Team name and approved non-sensitive options | Tokens, passwords, private keys, secret values |
+| Workspace | Environment-specific execution, variables, state, access | Unrelated teams with a different lifecycle |
 
-Do not continue until someone can explain configuration, plan, apply, and state
-in their own words.
+### Part 2: Hands-on walkthrough - 30 minutes
 
-## Session 2: Vault modules and JSON configuration
+The trainer performs every step while attendees watch and ask questions.
 
-### Session objective
+#### Walkthrough A: Start a disposable Vault server
 
-Attendees will build reusable Terraform configuration that creates a Vault KV
-mount and policy from non-sensitive JSON inputs.
-
-This local lab uses Vault Community in development mode. Vault namespaces are
-Enterprise-only, so the local lab creates policies and secrets engines. The
-customer demonstration can extend the same pattern with `vault_namespace` in
-their approved development Vault Enterprise environment.
-
-### Timing
-
-| Time | Activity |
-| --- | --- |
-| 0-10 | Vault provider and module concepts |
-| 10-20 | Start disposable Vault and review safety rules |
-| 20-45 | Build and apply the reusable module |
-| 45-52 | Show the Enterprise namespace extension |
-| 52-60 | Questions and checkpoint |
-
-### Opening script
-
-Say:
-
-> The reusable module defines the approved Vault pattern. The JSON file only
-> supplies non-sensitive team-specific inputs. Terraform uses `for_each` to
-> create one module instance for each configured team.
-
-Then clarify:
-
-> The shared module is the single code pattern. Development and production
-> still need separate configuration, workspaces, state, and approvals.
-
-### Safety rules
-
-- Use only a disposable local Vault or the approved development Vault.
-- Never place a root token in HCP Terraform, Jenkins, GitHub, or the README.
-- Never commit secrets, passwords, tokens, or private keys in JSON.
-- Do not use this lab against production.
-- The local root token exists only because this is a disposable development
-  server.
-
-### Demo 2: Start a disposable Vault server
-
-Use the customer-approved Vault version. This example uses the version observed
-in the customer notes. Confirm the image tag before the workshop.
+Use a customer-approved Vault version. The tag below is only a training
+example.
 
 ```bash
 docker run --rm \
@@ -462,16 +259,10 @@ export VAULT_TOKEN=training-root
 vault status
 ```
 
-If the Vault CLI is unavailable, verify through the container:
-
-```bash
-docker exec vault-training vault status
-```
-
 Expected result: Vault is initialized, unsealed, and running in development
-mode.
+mode. This root token is acceptable only for the disposable local lab.
 
-### Create the module repository structure
+#### Walkthrough B: Create the repository structure
 
 ```text
 vault-team-training/
@@ -495,9 +286,9 @@ mkdir -p vault-team-training/modules/team-config/templates
 cd vault-team-training
 ```
 
-### Root configuration
+#### Walkthrough C: Create the root configuration
 
-#### Create `versions.tf`
+Create `versions.tf`:
 
 ```hcl
 terraform {
@@ -515,9 +306,9 @@ provider "vault" {}
 ```
 
 The provider reads `VAULT_ADDR` and `VAULT_TOKEN` from the local environment.
-This local token pattern is not the HCP Terraform production design.
+This is not the HCP Terraform production authentication design.
 
-#### Create `teams.json`
+Create `teams.json`:
 
 ```json
 {
@@ -529,7 +320,7 @@ This local token pattern is not the HCP Terraform production design.
 }
 ```
 
-#### Create root `main.tf`
+Create root `main.tf`:
 
 ```hcl
 locals {
@@ -546,7 +337,7 @@ module "team_config" {
 }
 ```
 
-#### Create root `outputs.tf`
+Create root `outputs.tf`:
 
 ```hcl
 output "team_mounts" {
@@ -558,9 +349,9 @@ output "team_mounts" {
 }
 ```
 
-### Child module configuration
+#### Walkthrough D: Create the reusable child module
 
-#### Create `modules/team-config/variables.tf`
+Create `modules/team-config/variables.tf`:
 
 ```hcl
 variable "team_name" {
@@ -580,7 +371,7 @@ variable "enable_kv" {
 }
 ```
 
-#### Create `modules/team-config/templates/reader-policy.hcl.tftpl`
+Create `modules/team-config/templates/reader-policy.hcl.tftpl`:
 
 ```hcl
 path "${mount_path}/data/*" {
@@ -592,7 +383,7 @@ path "${mount_path}/metadata/*" {
 }
 ```
 
-#### Create `modules/team-config/main.tf`
+Create `modules/team-config/main.tf`:
 
 ```hcl
 terraform {
@@ -630,7 +421,7 @@ resource "vault_policy" "team_reader" {
 }
 ```
 
-#### Create `modules/team-config/outputs.tf`
+Create `modules/team-config/outputs.tf`:
 
 ```hcl
 output "mount_path" {
@@ -639,7 +430,7 @@ output "mount_path" {
 }
 ```
 
-### Run the module
+#### Walkthrough E: Run and explain the plan
 
 ```bash
 terraform init
@@ -652,53 +443,20 @@ vault secrets list
 vault policy read payments-reader
 ```
 
-Expected Terraform state addresses:
+Expected state addresses:
 
 ```text
 module.team_config["payments"].vault_mount.team_kv[0]
 module.team_config["payments"].vault_policy.team_reader[0]
 ```
 
-### Add a second team
+Point to each address and explain the module instance, resource type, resource
+name, and conditional index.
 
-Update `teams.json`:
+#### Enterprise namespace extension
 
-```json
-{
-  "teams": {
-    "analytics": {
-      "enable_kv": true
-    },
-    "payments": {
-      "enable_kv": true
-    }
-  }
-}
-```
-
-Run:
-
-```bash
-terraform plan
-```
-
-Ask the class to identify which resources will be added before applying.
-
-This demonstrates:
-
-- `jsondecode` for configuration inputs
-- `for_each` for one module instance per stable team key
-- `count` for a conditional resource
-- input validation
-- `templatefile` for a Vault policy
-- modules for reusable patterns
-
-Do not apply the second team unless time allows.
-
-### Enterprise namespace extension
-
-The local lab cannot create Vault Enterprise namespaces. In the customer
-development environment, the module can include a namespace resource similar
+The disposable Vault server cannot create Enterprise namespaces. In the
+customer development environment, a reviewed module can use a pattern similar
 to this:
 
 ```hcl
@@ -718,90 +476,183 @@ resource "vault_mount" "team_kv" {
 }
 ```
 
-The final customer module must be reviewed against their existing two-level
-namespace model, EGP restrictions, Okta identity mappings, auth method rules,
-secret-sync restrictions, and quotas. Do not copy this small example directly
-into production.
+Do not copy this small example into production. The final module must account
+for the customer's namespace hierarchy, EGP restrictions, identity mappings,
+auth methods, quotas, and ownership rules.
 
-### Session checkpoint questions
+### Part 3: Hands-on practice - 30 minutes
 
-1. What belongs in the module?
-2. What belongs in JSON?
-3. Why must JSON contain no sensitive values?
-4. Why is `for_each` safer with stable team names than list indexes?
-5. Why can the same module use different dev and prod configuration?
+Attendees work in pairs. The trainer observes and helps only after a pair has
+read the error and described what it means.
 
-### Local cleanup
+#### Practice task 1: Add a second team
 
-```bash
-terraform destroy
-docker stop vault-training
-```
+Update `teams.json`:
 
-## Session 3: Import and refactor existing Vault resources
-
-### Session objective
-
-Attendees will understand how to connect one existing Vault resource to
-Terraform state, reconcile the first plan, and refactor its Terraform address
-without recreating it.
-
-### Timing
-
-| Time | Activity |
-| --- | --- |
-| 0-10 | Resource, data source, state, import, and moved-block distinctions |
-| 10-20 | Inventory and migration safety |
-| 20-40 | Import one existing local Vault resource |
-| 40-50 | Reconcile the first plan and discuss generated configuration |
-| 50-57 | Refactor with a moved block |
-| 57-60 | Checkpoint and next action |
-
-### Opening script
-
-Say:
-
-> Import does not move or recreate the Vault object. It records a relationship
-> between a Terraform resource address and an existing Vault object. Terraform
-> still needs configuration describing the desired state.
-
-Then say:
-
-> The first plan after import is the safety gate. If the configuration does not
-> match the existing object, Terraform can propose an update or replacement.
-> We do not apply until every proposed action is understood.
-
-### Import safety checklist
-
-- [ ] Confirm the provider version.
-- [ ] Confirm that the resource supports import.
-- [ ] Read the resource-specific import ID format.
-- [ ] Inventory the existing object.
-- [ ] Back up current configuration and state.
-- [ ] Write or generate the Terraform resource configuration.
-- [ ] Import one development resource.
-- [ ] Run and review the first plan.
-- [ ] Reconcile all unintended differences.
-- [ ] Obtain approval before apply.
-- [ ] Document rollback and ownership.
-
-### Data source versus import
-
-```hcl
-data "vault_namespaces" "existing" {
-  namespace = "nutanix"
-  recursive = true
+```json
+{
+  "teams": {
+    "analytics": {
+      "enable_kv": true
+    },
+    "payments": {
+      "enable_kv": true
+    }
+  }
 }
 ```
 
-This data source can read namespace information. It does not put those
-namespaces under Terraform management. Import is required when Terraform must
-own their lifecycle.
+Run:
 
-### Demo 3: Create an unmanaged Vault resource
+```bash
+terraform fmt -recursive
+terraform validate
+terraform plan
+```
 
-Start the disposable Vault server from Session 2, then create a mount outside
-Terraform:
+Before applying, each pair must state:
+
+- Which module instance will be added
+- Which Vault resources will be added
+- Why the existing `payments` resources remain unchanged
+
+Apply only after the explanation is correct:
+
+```bash
+terraform apply
+terraform state list
+```
+
+#### Practice task 2: Test a condition
+
+Change `analytics.enable_kv` to `false` and run `terraform plan`.
+
+Expected result: the analytics Vault resources are proposed for deletion if
+they were already applied. This demonstrates why an innocent-looking JSON
+change can be destructive and requires review.
+
+Restore the value to `true` before the next task.
+
+#### Practice task 3: Trigger input validation
+
+Rename `analytics` to `Analytics Team` and run:
+
+```bash
+terraform plan
+```
+
+Expected result: the input validation rejects the name. Restore `analytics`.
+
+#### Practice completion check
+
+- [ ] Both team module instances appear in the plan or state.
+- [ ] Attendees can explain `for_each` and `count` in this example.
+- [ ] Attendees saw validation reject an invalid team name.
+- [ ] No secret value was added to JSON.
+
+### Part 4: Quiz - 10 minutes
+
+Ask attendees to answer without consulting the guide.
+
+1. What does Terraform state record?
+   - A. Only the latest plan
+   - B. Mappings between Terraform addresses and real objects
+   - C. Vault audit logs
+   - D. Git pull requests
+2. What does a data source do?
+   - A. Reads existing information
+   - B. Imports an object into state
+   - C. Approves an apply
+   - D. Stores credentials
+3. What should be stored in `teams.json`?
+   - A. Vault root tokens
+   - B. Private keys
+   - C. Non-sensitive team configuration
+   - D. HCP Terraform session cookies
+4. Why use a module?
+   - A. To replace state
+   - B. To package a reusable configuration pattern
+   - C. To bypass a plan
+   - D. To discover all existing resources automatically
+5. What must happen before applying a plan?
+   - A. Review the proposed changes
+   - B. Delete state
+   - C. Disable validation
+   - D. Put credentials in Git
+
+#### Trainer answer key
+
+1. B
+2. A
+3. C
+4. B
+5. A
+
+### Session 1 cleanup
+
+```bash
+terraform destroy
+```
+
+Stop the Vault container with `Ctrl+C` in its terminal.
+
+## Session 2: Import, refactoring, workspace, and state design
+
+### Session objective
+
+Attendees will connect one existing Vault object to Terraform state, reconcile
+the first plan, refactor its resource address safely, and select a reasonable
+workspace boundary.
+
+### Part 1: Definition - 20 minutes
+
+#### What to say
+
+> Import does not move or recreate an object. It connects an existing object ID
+> to a Terraform resource address in state. Terraform still needs configuration
+> that describes how the object should be managed. The first plan must be
+> reconciled before any change is applied.
+
+Explain the comparison:
+
+```mermaid
+flowchart TD
+    A["Terraform configuration"] --> D["Plan comparison"]
+    B["State mapping"] --> D
+    C["Existing Vault object"] --> D
+    D --> E{"Result"}
+    E -->|Match| F["No change"]
+    E -->|Difference| G["Update or replace"]
+```
+
+#### Import concepts
+
+- Traditional `terraform import` changes state immediately.
+- An `import` block makes the import reviewable in configuration and a plan.
+- `-generate-config-out` can generate starting configuration for supported
+  resources, but the generated code still requires review.
+- Not every provider resource supports import. Check its documentation and ID
+  format.
+- A data source reads an object. It does not import or manage it.
+- A `moved` block changes the Terraform address without recreating the object.
+
+#### Workspace and state principle
+
+Do not place all 60-65 namespaces and all shared root resources in one state.
+Separate state by ownership, lifecycle, dependencies, access, and blast radius.
+
+| Starting boundary | Purpose |
+| --- | --- |
+| Vault shared platform | Root or organizational resources with restricted ownership |
+| Vault development pilot | Pilot development team configuration |
+| Vault production | Future production configuration with separate approval |
+| Governance | Policy sets and shared controls where separate ownership is needed |
+
+### Part 2: Hands-on walkthrough - 30 minutes
+
+#### Walkthrough A: Start Vault and create an unmanaged object
+
+Start the disposable Vault server as in Session 1, then run:
 
 ```bash
 export VAULT_ADDR=http://127.0.0.1:8200
@@ -810,11 +661,18 @@ vault secrets enable -path=legacy-kv kv-v2
 vault secrets list
 ```
 
-Terraform does not know about `legacy-kv` yet.
+The mount exists in Vault but is not in Terraform state.
 
-### Option A: Traditional CLI import
+#### Walkthrough B: Write the matching resource configuration
 
-Create a clean directory and a configuration containing:
+Create a clean directory:
+
+```bash
+mkdir vault-import-training
+cd vault-import-training
+```
+
+Create `main.tf`:
 
 ```hcl
 terraform {
@@ -831,8 +689,9 @@ terraform {
 provider "vault" {}
 
 resource "vault_mount" "legacy" {
-  path = "legacy-kv"
-  type = "kv"
+  path        = "legacy-kv"
+  type        = "kv"
+  description = "Imported legacy KV mount"
 
   options = {
     version = "2"
@@ -840,22 +699,27 @@ resource "vault_mount" "legacy" {
 }
 ```
 
-Run:
+Do not run `terraform apply`. Without an import, apply would attempt to create a
+new object at an existing path and fail.
+
+#### Walkthrough C: Perform a traditional CLI import
 
 ```bash
 terraform init
 terraform import vault_mount.legacy legacy-kv
+terraform state list
 terraform state show vault_mount.legacy
 terraform plan
 ```
 
-The import command changes state immediately. It does not generate the
-resource block.
+Explain that the import modified state but did not generate `main.tf`.
 
-### Option B: Declarative import block
+The plan may show a change because the desired description does not necessarily
+match the existing mount. Import does not guarantee a no-change plan.
 
-Use this instead of the CLI import when the import must be reviewed through
-Git and HCP Terraform:
+#### Walkthrough D: Show the declarative alternative
+
+The recommended GitOps form is:
 
 ```hcl
 import {
@@ -864,170 +728,267 @@ import {
 }
 ```
 
-Then run:
+In a clean state, the normal sequence is:
 
 ```bash
 terraform plan
 terraform apply
 ```
 
-Do not run Options A and B against the same state. They are two alternative
-methods.
-
-### Generated configuration
-
-When a resource block does not yet exist, an import block can be combined with:
+To ask Terraform to generate starting configuration for supported resources:
 
 ```bash
 terraform plan -generate-config-out=generated.tf
 ```
 
-Generated configuration is a starting point. Review and simplify it before
-apply. It may include defaults, computed-looking values, or arguments that do
-not match the desired module design.
+Do not use both the already-completed CLI import and a new import block for the
+same object in the same lab state.
 
-### Importing a namespaced Vault resource
+#### Walkthrough E: Refactor with a moved block
 
-Vault provider imports inside a namespace require the import namespace to be
-specified. Example:
-
-```bash
-export TERRAFORM_VAULT_NAMESPACE_IMPORT="nutanix/payments"
-terraform import vault_mount.team_kv kv
-unset TERRAFORM_VAULT_NAMESPACE_IMPORT
-```
-
-Important:
-
-- Use the exact namespace path and import ID from the provider documentation.
-- Set this variable only for the import.
-- For HCP Terraform imports, configure the temporary environment setting only
-  in the controlled import workspace and remove it afterward.
-- Test this against one development namespace first.
-
-### Reconcile the first plan
-
-Possible results:
-
-| Plan result | Meaning | Action |
-| --- | --- | --- |
-| No changes | Configuration matches the object | Continue review |
-| In-place update | An argument differs | Decide whether code or Vault is correct |
-| Replacement | A force-new argument differs | Stop and investigate |
-| Delete | Terraform no longer sees desired ownership | Stop immediately |
-| Error | Configuration, permissions, or import ID is incomplete | Fix before continuing |
-
-Never say that import automatically produces a no-change plan.
-
-### Refactor with a moved block
-
-Assume `vault_mount.legacy` is already managed and is being moved into a
-module. After creating the destination module and removing the old root
-resource block, declare:
+Suppose the final design places the resource in a module. Add:
 
 ```hcl
 moved {
   from = vault_mount.legacy
-  to   = module.legacy_mount.vault_mount.this
+  to   = module.team_config.vault_mount.team_kv
 }
 ```
 
-Run:
+The destination resource must exist in the module configuration. Run:
 
 ```bash
 terraform plan
 ```
 
-Expected result: Terraform reports an address move instead of destroy and
-create. The destination address must match the actual module resource address.
+The correct result should show an address move without destroying and
+recreating the Vault mount. If Terraform proposes deletion or replacement,
+stop and correct the configuration.
 
-Best practice for new migrations: if the final module address is already known,
-import directly to that final address and avoid an unnecessary intermediate
-move.
+For a `for_each` module, the final address can include a stable key, for
+example:
 
-### Customer pilot import order
+```hcl
+moved {
+  from = vault_mount.legacy
+  to   = module.team_config["legacy"].vault_mount.team_kv[0]
+}
+```
 
-Use this order for one development namespace:
+#### Namespaced Vault imports
 
-1. Namespace
-2. Secrets engine mounts
-3. ACL policies
-4. Identity groups and aliases
-5. Auth method configuration
-6. Quotas or governance resources
+For a namespaced Vault resource, verify the resource documentation and set the
+import namespace where required:
 
-The exact order depends on dependencies. Do not import identity groups until
-the Okta auth accessor, aliases, ownership, and policy behavior are understood.
+```bash
+export TERRAFORM_VAULT_NAMESPACE_IMPORT=admin/team-a
+terraform import vault_mount.team_kv kv
+```
 
-### Session checkpoint questions
+The import identifier and namespace rules are resource-specific. Test them in
+development before attempting an HCP Terraform migration.
 
-1. What does import change?
-2. Why is the first plan risky?
-3. What does a data source not do?
-4. When should a moved block be used?
-5. Why should the pilot import only one development namespace?
+### Part 3: Hands-on practice - 30 minutes
 
-## Session 4: HCP Terraform workflow, security, and drift
+#### Practice task 1: Interpret the first plan
+
+Give each pair this scenario:
+
+> An existing `legacy-kv` mount was imported. Terraform proposes changing its
+> description and replacing another argument. What should you do?
+
+Required answer:
+
+1. Stop before apply.
+2. Inspect the real object and provider schema.
+3. Reconcile the configuration with the existing object.
+4. Decide which differences are intentional.
+5. Obtain review before applying any change or replacement.
+
+#### Practice task 2: Import another disposable mount
+
+Create a second unmanaged object:
+
+```bash
+vault secrets enable -path=practice-kv kv-v2
+```
+
+Each pair must:
+
+1. Add a `vault_mount.practice` resource block.
+2. Run `terraform init` if needed.
+3. Import `practice-kv` with either the CLI or an import block.
+4. Run `terraform state show`.
+5. Run `terraform plan`.
+6. Explain every proposed change before applying anything.
+
+Example resource block:
+
+```hcl
+resource "vault_mount" "practice" {
+  path = "practice-kv"
+  type = "kv"
+
+  options = {
+    version = "2"
+  }
+}
+```
+
+#### Practice task 3: Choose state boundaries
+
+Ask each pair to place these items into sensible workspaces:
+
+- Shared organizational Vault configuration
+- Development pilot team configuration
+- Production team configuration
+- HCP Terraform governance policies
+- All 65 team namespaces
+
+Expected discussion:
+
+- Shared resources need a restricted workspace.
+- Development and production need separate state and approval boundaries.
+- Governance can have separate ownership.
+- Do not automatically put all namespaces into one workspace. Group them based
+  on ownership, lifecycle, dependencies, access, and acceptable blast radius.
+
+#### Practice completion check
+
+- [ ] An existing object is mapped into state.
+- [ ] The first plan was reviewed before apply.
+- [ ] Attendees can explain data source versus import.
+- [ ] Attendees can explain import versus moved block.
+- [ ] Attendees proposed separate development and production state boundaries.
+
+### Part 4: Quiz - 10 minutes
+
+1. What does import do?
+   - A. Recreates an existing object
+   - B. Connects an existing object to a Terraform state address
+   - C. Creates a Git branch
+   - D. Approves a plan
+2. What must exist for Terraform to manage an imported object afterward?
+   - A. Matching resource configuration
+   - B. Only a data source
+   - C. Only an audit log
+   - D. A production token in Git
+3. What should you do if the first plan proposes an unexpected replacement?
+   - A. Apply immediately
+   - B. Delete state
+   - C. Stop and reconcile the configuration
+   - D. Disable the provider
+4. What does a moved block change?
+   - A. The real infrastructure object
+   - B. The Terraform resource address
+   - C. The Vault token
+   - D. The GitHub repository owner
+5. Why separate development and production state?
+   - A. To reduce blast radius and separate access and approvals
+   - B. To avoid using modules
+   - C. To remove peer review
+   - D. To put secrets in JSON
+
+#### Trainer answer key
+
+1. B
+2. A
+3. C
+4. B
+5. A
+
+### Session 2 cleanup
+
+Destroy only the disposable training resources that Terraform owns. Do not run
+destroy against a customer workspace.
+
+```bash
+terraform state list
+terraform destroy
+```
+
+Stop the disposable Vault container when finished.
+
+## Session 3: VCS workflow, security, drift, and governance
 
 ### Session objective
 
-Attendees will understand the target VCS-driven run lifecycle and how private
-connectivity, short-lived identity, scanning, policy enforcement, approval,
-state, and health assessments fit together.
+Attendees will understand the target VCS-driven HCP Terraform workflow, its
+security layers, the drift process, and the future shared-governance model.
 
-### Timing
+### Part 1: Definition - 20 minutes
 
-| Time | Activity |
+#### What to say
+
+> GitHub is the source of reviewed configuration. Jenkins validates and scans
+> the code. HCP Terraform creates the authoritative plan, applies approved
+> changes through a private Agent, stores state, and performs health
+> assessments. OIDC gives the run short-lived Vault credentials. Each control
+> solves a different problem.
+
+#### Target run flow
+
+```mermaid
+flowchart TD
+    A["JSON or module change"] --> B["GitHub pull request"]
+    B --> C["Jenkins checks"]
+    C --> D["Speculative HCP plan"]
+    D --> E["Peer review and merge"]
+    E --> F["Workspace plan and policy checks"]
+    F --> G["Authorized approval"]
+    G --> H["Agent execution with OIDC"]
+    H --> I["Vault, state, and health"]
+```
+
+#### Control layers
+
+| Control | Purpose | Example |
+| --- | --- | --- |
+| `terraform fmt` and `validate` | Syntax and internal validity | Jenkins pre-check |
+| Trivy, Checkov, or Cycode | Static analysis of Terraform code | Pull-request scan |
+| HCP Terraform speculative plan | Preview a pull-request change | GitHub review |
+| Run task | Call an external service during a run | Security integration |
+| Sentinel, OPA, or HCP policy | Evaluate plan and metadata | Require approved modules |
+| Vault EGP or RGP | Govern requests at the Vault API | Restrict namespace behavior |
+| Health assessment | Detect configuration drift and check failures | Manual policy change |
+
+These controls are complementary, not interchangeable.
+
+#### Agent and OIDC distinction
+
+| Layer | Purpose | Verification question |
+| --- | --- | --- |
+| HCP Terraform Agent | Runs Terraform inside the private network | Can it resolve and reach Vault using the trusted CA? |
+| OIDC workload identity | Authenticates the HCP Terraform run | Does Vault trust the issuer, audience, and claims? |
+| Vault role and policy | Authorizes allowed operations | Are plan and apply permissions least privilege? |
+
+The Agent is not the credential. It provides execution and network reachability.
+
+#### Shared governance model
+
+The Product Security or platform team should not own every other team's code
+and every apply.
+
+| Central platform team owns | Consumer team owns |
 | --- | --- |
-| 0-10 | Current CLI-driven workflow versus target VCS workflow |
-| 10-20 | Repository, project, workspace, and state design |
-| 20-30 | Jenkins and speculative plans |
-| 30-42 | Agent connectivity and OIDC authentication |
-| 42-52 | Scanning, run tasks, Sentinel/OPA, and Vault EGP |
-| 52-60 | Approval and drift demonstration |
+| Approved modules and lifecycle | Environment-specific inputs |
+| Project and workspace standards | Pull requests and deployments |
+| Policy sets and exception process | Infrastructure outcomes |
+| Identity and permission standards | Remediation of failed plans and drift |
+| Agent and dynamic credential patterns | Use of approved patterns |
+| Audit and governance visibility | Day-to-day workspace operation |
 
-### Opening script
+### Part 2: Hands-on walkthrough - 30 minutes
 
-Say:
+This walkthrough uses the customer environment only if the prerequisites are
+complete. Otherwise, use screenshots and the local repository.
 
-> Your code is already reviewed in GitHub, but most HCP Terraform runs are
-> started manually through the CLI. The target is to connect the workspace to
-> GitHub so pull requests produce speculative plans and approved merges produce
-> governed execution runs.
-
-Then say:
-
-> Two security layers are easy to confuse. The HCP Terraform Agent gives the
-> run a private network path to Vault. OIDC gives that run a short-lived Vault
-> identity. We need both when Vault is private.
-
-### Current and target workflow
-
-Current:
-
-1. Code is stored and peer-reviewed in GitHub.
-2. An operator pulls the code locally.
-3. The operator starts the HCP Terraform run through the CLI.
-
-Target:
-
-1. A pull request triggers Jenkins validation and an HCP Terraform speculative
-   plan.
-2. Peers review the code and plan.
-3. Merge triggers a normal HCP Terraform run.
-4. Run tasks and policy checks evaluate the change.
-5. An authorized user confirms the apply.
-6. An HCP Terraform Agent reaches private Vault.
-7. HCP Terraform authenticates to Vault with short-lived OIDC credentials.
-8. Apply updates Vault and the workspace state.
-9. Health assessments monitor configuration drift.
-
-### Recommended repository structure
+#### Walkthrough A: Show the proposed repository structure
 
 ```text
 vault-platform/
 |-- modules/
-|   `-- team-namespace/
+|   `-- team-config/
 |-- live/
 |   |-- dev/
 |   |   |-- main.tf
@@ -1035,44 +996,16 @@ vault-platform/
 |   `-- prod/
 |       |-- main.tf
 |       `-- teams.json
-|-- Jenkinsfile
-`-- README.md
+`-- Jenkinsfile
 ```
 
-For the long-term private registry model, move the reusable module to its own
-repository and publish tagged versions. Keep consumer configuration separate.
+The same module version can be consumed by development, production, or both.
+The environment files, workspaces, state, access, and approvals remain separate.
 
-### Workspace and state starting point
+#### Walkthrough B: Show Jenkins validation
 
-| HCP project | Workspace | Owns |
-| --- | --- | --- |
-| Vault Dev | `vault-team-pilot-dev` | One development pilot namespace |
-| Vault Production | Not part of initial pilot | Future production resources |
-| Vault Platform | Future restricted workspace | Shared root or org-level resources |
-
-Do not create one state containing all root resources and all 60-65 team
-namespaces. Final workspace granularity should be based on ownership, lifecycle,
-dependencies, and blast radius.
-
-### HCP Terraform workspace setup checklist
-
-1. Create or select the Vault Dev project.
-2. Create `vault-team-pilot-dev`.
-3. Connect the GitHub repository through the approved GitHub App connection.
-4. Set the working directory to the pilot development root configuration.
-5. Select Agent execution mode when Vault is private.
-6. Select the approved Agent pool.
-7. Disable auto-apply.
-8. Pin the Terraform version.
-9. Assign least-privilege team access.
-10. Configure Vault dynamic credential environment variables.
-11. Add applicable policy sets and run tasks.
-12. Enable health assessments after the first successful apply.
-
-### Jenkins validation example
-
-Use the customer's approved scanner. The following is a teaching example, not
-a production Jenkins standard:
+Use the customer's approved scanner. This is a teaching example, not a final
+enterprise Jenkins standard.
 
 ```groovy
 pipeline {
@@ -1107,26 +1040,31 @@ Checkov alternative:
 checkov -d . --framework terraform --compact
 ```
 
-Harbor is primarily a registry and container image scanning platform. If Harbor
-uses Trivy, that does not automatically mean Terraform files are scanned in the
-Git workflow. Standalone Trivy or another approved IaC scanner must be placed in
-the repository pipeline.
+Harbor is primarily an image registry and image-scanning platform. If Harbor
+uses Trivy, that does not automatically scan Terraform files in a Git pull
+request. A supported IaC scanner must be added to the repository pipeline.
 
-### Agent connectivity versus OIDC authentication
+#### Walkthrough C: Configure the development workspace
 
-| Layer | Purpose | Question to verify |
-| --- | --- | --- |
-| HCP Terraform Agent | Runs Terraform inside the private network | Can the Agent resolve and reach the Vault API and CA? |
-| OIDC workload identity | Authenticates the HCP Terraform run to Vault | Does Vault trust the HCP Terraform issuer and claims? |
-| Vault role and policy | Authorizes permitted Vault paths and operations | Are plan and apply permissions least privilege? |
+In HCP Terraform, show or describe these steps:
 
-Do not describe the Agent as the credential. It is the execution and network
-path.
+1. Create or select the Vault Development project.
+2. Create `vault-team-pilot-dev`.
+3. Connect the approved GitHub repository and branch.
+4. Set the working directory to `live/dev`.
+5. Select Agent execution mode for private Vault connectivity.
+6. Select the approved Agent pool.
+7. Disable auto-apply.
+8. Pin the Terraform version.
+9. Grant least-privilege team access.
+10. Configure Vault dynamic credential variables.
+11. Attach applicable policy sets and run tasks.
+12. Enable health assessments after the first successful apply.
 
-### Vault dynamic credential workspace variables
+#### Walkthrough D: Explain dynamic Vault credentials
 
-For a single Vault provider configuration, the HCP Terraform workspace commonly
-uses variables such as:
+A single Vault provider configuration commonly uses workspace environment
+variables such as:
 
 ```text
 TFC_VAULT_PROVIDER_AUTH=true
@@ -1135,371 +1073,297 @@ TFC_VAULT_RUN_ROLE=vault-team-pilot
 TFC_VAULT_NAMESPACE=nutanix
 ```
 
-For stronger separation, configure different roles:
+For separate plan and apply permissions:
 
 ```text
 TFC_VAULT_PLAN_ROLE=vault-team-pilot-plan
 TFC_VAULT_APPLY_ROLE=vault-team-pilot-apply
 ```
 
-With a single dynamic credential configuration, do not hard-code the Vault
-address, token, or namespace in the provider block:
+Keep the provider block empty for the single dynamic credential configuration:
 
 ```hcl
 provider "vault" {}
 ```
 
-A Vault administrator must configure the JWT auth method, trust, bound claims,
-roles, policies, TTLs, and CA requirements. Bind at least the audience and HCP
-Terraform organization. Prefer workspace- or project-scoped claims and
-short-lived renewable tokens. Do not configure this live without the Vault
-administrator.
+A Vault administrator must configure JWT trust, bound audience and claims,
+roles, policies, token TTLs, namespaces, and CA trust. Prefer workspace- or
+project-scoped claims and short-lived credentials. Do not store a permanent
+Vault token in Git or a normal workspace variable.
 
-### Security control layers
+#### Walkthrough E: Follow one pull request
 
-| Control | Evaluates | Runs when | Example |
-| --- | --- | --- | --- |
-| `terraform fmt` and `validate` | Syntax and internal validity | Before plan | Jenkins |
-| Trivy, Checkov, or Cycode | Static Terraform configuration | Pull request | Jenkins |
-| HCP Terraform run task | External service result | Configured run stage | Security integration |
-| Sentinel, OPA, or Terraform policy | Terraform plan and metadata | HCP Terraform run | Required tags or approved modules |
-| Vault EGP/RGP | Vault API requests and governance | Vault request time | Prevent unsupported namespace depth |
-| Health assessment | Deployed configuration drift and checks | Periodically after apply | Manual policy change detected |
+1. Change one non-sensitive value in `live/dev/teams.json`.
+2. Create a branch and pull request.
+3. Show Jenkins format, validation, and scanner results.
+4. Open the HCP Terraform speculative plan linked to the pull request.
+5. Ask a peer to review the code and plan.
+6. Merge to the configured branch.
+7. Open the new HCP Terraform workspace run.
+8. Review policy and run-task results.
+9. Confirm the final plan has no unexpected deletion or replacement.
+10. Ask the authorized development approver to confirm apply.
+11. Show the Agent execution, output, state, and run history.
 
-Do not treat these tools as interchangeable.
+Do not use production for this walkthrough.
 
-### Approval flow
+#### Walkthrough F: Demonstrate controlled drift
 
-For the pilot:
+Prerequisites: one successful HCP Terraform apply and health assessments
+enabled.
 
-1. Jenkins checks pass.
-2. HCP speculative plan is reviewed in the pull request.
-3. Peer approves and merges.
-4. HCP Terraform creates a new execution plan.
-5. Run tasks and policies pass.
-6. A designated development approver confirms apply.
-
-Production must have a separate workspace, state, authorization, and approval
-process even when it uses the same module version.
-
-### Drift demonstration
-
-Prerequisite: at least one successful remote or Agent-mode apply and health
-assessments enabled.
-
-1. Record the expected Terraform-managed Vault policy.
-2. Make a controlled manual change in development Vault.
-3. In HCP Terraform, open the workspace Health page.
-4. Start an on-demand health assessment if permitted, or wait for the scheduled
-   assessment.
+1. Record a Terraform-managed development policy or mount setting.
+2. Make one controlled manual change in development Vault.
+3. Open the workspace Health page.
+4. Start or wait for the next health assessment.
 5. Review the drift result.
-6. Choose one remediation path:
+6. Explain the two valid remediation paths:
    - Reject the manual change and apply Terraform to restore configuration.
-   - Accept the manual change by updating Git, reviewing the plan, and applying.
-7. Never silently update state to hide an unexplained change.
+   - Accept the change by updating Git, reviewing the plan, and applying it.
 
-Clarify that health assessments detect configuration drift. They do not
-automatically revert the manual change.
+Health assessments detect drift. They do not automatically repair it.
 
-### Session checkpoint questions
+#### Walkthrough G: Show the scale-out path
 
-1. What triggers a speculative plan?
-2. What happens after merge when auto-apply is disabled?
-3. What is the difference between an Agent and OIDC?
-4. What is the difference between Checkov and Sentinel?
-5. What are the two valid drift remediation choices?
+After the pilot succeeds:
 
-## Session 5: Registry, RBAC, governance, and Infragraph
+1. Put the module in a dedicated repository.
+2. Add documentation, examples, tests, and scans.
+3. Require pull-request review.
+4. Tag a semantic version such as `v1.0.0`.
+5. Publish it to the HCP Terraform private registry.
+6. Pin consumers to approved versions.
+7. Start stable policies in advisory mode.
+8. Measure false positives and create an exception process.
+9. Move critical controls to mandatory enforcement.
+10. Delegate consumer workspaces without delegating central policy ownership.
 
-### Session objective
+Infragraph can be introduced as an HCP resource graph for supported inventory
+and relationships. It is not real-time, does not replace drift detection, and
+does not automatically remediate vulnerabilities. Confirm current customer
+availability and supported connections before demonstrating it.
 
-Attendees will understand how the Vault pilot can become a reusable federated
-governance pattern without the Product Security team owning every other team's
-Terraform code.
+### Part 3: Hands-on practice - 30 minutes
 
-### Timing
+#### Practice task 1: Review a pull request flow
 
-| Time | Activity |
+Attendees arrange these cards or lines in the correct order:
+
+- Authorized apply approval
+- GitHub pull request
+- HCP Terraform workspace plan
+- Jenkins validation and scan
+- Agent execution with OIDC
+- Peer review and merge
+- Speculative plan
+- State update and health assessment
+
+Correct order:
+
+1. GitHub pull request
+2. Jenkins validation and scan
+3. Speculative plan
+4. Peer review and merge
+5. HCP Terraform workspace plan
+6. Authorized apply approval
+7. Agent execution with OIDC
+8. State update and health assessment
+
+#### Practice task 2: Assign each control
+
+For each requirement, attendees select the correct primary control:
+
+| Requirement | Expected primary control |
 | --- | --- |
-| 0-15 | Private registry and module lifecycle |
-| 15-30 | Projects, teams, RBAC, and delegated administration |
-| 30-42 | Policy-as-code rollout and exceptions |
-| 42-50 | Desired state versus operational jobs |
-| 50-57 | Infragraph overview and limitations |
-| 57-60 | Roadmap and success criteria |
+| Check Terraform syntax | `terraform validate` |
+| Scan code for IaC risks | Trivy, Checkov, or Cycode |
+| Require an approved module | Sentinel, OPA, or HCP Terraform policy |
+| Restrict a Vault API operation | Vault EGP or RGP |
+| Reach a private Vault API | HCP Terraform Agent |
+| Authenticate without a permanent token | OIDC dynamic credentials |
+| Find a manual configuration change | Health assessment |
 
-### Opening script
+#### Practice task 3: Design team permissions
 
-Say:
+Assign these responsibilities without giving everyone organization-owner
+access:
 
-> The Vault pilot is the first implementation of a larger operating model. The
-> goal is not for Product Security to own every team's Terraform code. The goal
-> is to provide approved modules, access boundaries, policies, and visibility
-> while each team remains accountable for its own deployments.
+- Module author
+- Security policy author
+- Project administrator
+- Workspace operator
+- Production approver
+- Viewer or auditor
 
-### Federated governance model
+Required outcome:
 
-The platform team should not own every team's Terraform code and every apply.
-The target operating model is:
+- Module authors do not automatically receive production apply everywhere.
+- Policy authors do not automatically own infrastructure.
+- Workspace operators cannot bypass mandatory policy without permission.
+- Production approval is separate from module deletion or organization ownership.
+- Auditors have read-only access appropriate to their role.
 
-#### Platform or Product Security team owns
+#### Practice task 4: Choose the right automation
 
-- HCP Terraform organization and project standards
-- Approved private registry modules
-- Module testing, versioning, and deprecation process
-- Global and scoped policy sets
-- Identity, team, and permission standards
-- Agent pool standards
-- Dynamic credential patterns
-- Audit, drift, and governance visibility
-- Exception and policy override process
-
-#### Application and infrastructure teams own
-
-- Their consumer configuration
-- Their environment-specific inputs
-- Their repositories and pull requests
-- Their workspace runs within delegated permissions
-- Their infrastructure outcomes
-- Remediation of failed plans, policies, and drift
-
-### Suggested HCP Terraform roles
-
-| Role | Responsibilities | Must not automatically receive |
-| --- | --- | --- |
-| Organization owner | Limited break-glass administration | Routine workspace operation |
-| Platform module author | Build and publish approved modules | Production apply everywhere |
-| Security policy author | Maintain policy code and enforcement | Infrastructure ownership |
-| Project administrator | Manage an assigned project and team access | Organization-wide ownership |
-| Workspace operator | Queue plans and review results | Unrestricted policy override |
-| Production approver | Confirm approved production applies | Module deletion rights |
-| Viewer or auditor | Read runs, state outputs, and history as allowed | Apply permissions |
-
-Use SSO and SCIM group mappings where supported. Grant permissions to teams or
-groups rather than individuals. Review the current situation where much of the
-team can approve production changes.
-
-### Private registry lifecycle
-
-1. Create a dedicated module repository.
-2. Define inputs, outputs, examples, and documentation.
-3. Add Terraform tests.
-4. Run formatting, validation, tests, and security scans.
-5. Require pull-request review.
-6. Tag a semantic version, such as `v1.0.0`.
-7. Publish the module to the HCP Terraform private registry.
-8. Pin consumers to an approved version.
-9. Publish backward-compatible changes as minor versions.
-10. Publish breaking changes as major versions.
-11. Deprecate old versions with a migration path and deadline.
-
-Do not update the module and every consumer input in one uncontrolled change.
-Publish and test the module version first, then promote consumer configuration.
-
-### Starter policy rollout
-
-Begin in advisory mode. Measure failures and false positives before blocking
-runs.
-
-Recommended starter controls:
-
-- Allowed providers
-- Pinned provider versions
-- Approved private registry modules
-- Pinned module versions
-- Required ownership and environment metadata
-- No dangerous provisioners unless explicitly approved
-- No production auto-apply
-- Restricted policy overrides
-- Environment-specific restrictions
-
-Move critical, stable controls to mandatory enforcement only after an exception
-process exists.
-
-### Vault EGP versus HCP Terraform policy
-
-| Control | Enforcement point | Example |
-| --- | --- | --- |
-| HCP Terraform Sentinel/OPA | Terraform run before apply | Require approved modules or metadata |
-| Vault EGP/RGP | Vault API request | Deny third-level namespaces or restricted operations |
-
-Use both when required. HCP Terraform policies govern Terraform changes. Vault
-EGP/RGP protects Vault even when a request comes from another approved client.
-
-### Desired state versus operational automation
-
-| Appropriate for Terraform | Better as an operational workflow |
+| Activity | Terraform desired state or operational workflow? |
 | --- | --- |
-| Namespace existence | Delete entities based on inactivity |
-| ACL policy definition | Scheduled cleanup jobs |
-| Identity group configuration | Emergency bulk disable or enable |
-| Auth method configuration | Functional tests after upgrades |
-| Secrets engine configuration | One-time data migrations |
-| Quotas and EGP/RGP definitions | Runtime decisions based on activity history |
+| Ensure a namespace exists | Terraform |
+| Define an ACL policy | Terraform |
+| Delete identities based on inactivity | Operational workflow |
+| Run upgrade functionality tests | Operational workflow |
+| Configure a secrets engine | Terraform |
+| Perform a one-time data migration | Operational workflow |
 
-Terraform can manage the desired enabled or disabled state of a known object.
-It should not query runtime behavior, decide who is inactive, and act as a
-scheduler.
+#### Practice completion check
 
-### Self-service options
+- [ ] Attendees can order the VCS-driven run lifecycle.
+- [ ] Attendees can distinguish Agent connectivity and OIDC authentication.
+- [ ] Attendees placed each security control in the correct layer.
+- [ ] Attendees separated central governance from consumer ownership.
+- [ ] Attendees identified Terraform and non-Terraform operations.
 
-After the module is proven:
+### Part 4: Quiz - 10 minutes
 
-1. Allow experienced teams to consume the versioned module through HCL and VCS.
-2. Make the module no-code ready for controlled HCP Terraform self-service.
-3. Consider HCP Waypoint templates for broader application-focused golden
-   patterns.
+1. What triggers an HCP Terraform speculative plan in the target workflow?
+   - A. A connected pull request change
+   - B. A Vault token expiration
+   - C. A state deletion
+   - D. An Infragraph query
+2. What is the HCP Terraform Agent's primary purpose here?
+   - A. Store a permanent token
+   - B. Provide private execution and network reachability
+   - C. Replace GitHub review
+   - D. Author Vault policies
+3. What provides short-lived Vault authentication?
+   - A. Jenkins logs
+   - B. OIDC dynamic credentials
+   - C. Infragraph
+   - D. A moved block
+4. What does a health assessment do?
+   - A. Automatically repairs every manual change
+   - B. Detects drift and check failures
+   - C. Publishes a module
+   - D. Creates a Vault cluster
+5. Who should own application or infrastructure team deployments?
+   - A. The central platform team in every case
+   - B. The consumer team within central guardrails
+   - C. The scanner vendor
+   - D. The Vault root token holder
 
-Do not call the current public Waypoint construct a blueprint. The public terms
-are HCP Terraform no-code module, HCP Waypoint template, and HCP Waypoint
-add-on.
+#### Trainer answer key
 
-### Infragraph overview
+1. A
+2. B
+3. B
+4. B
+5. B
 
-Explain:
+## Pilot execution after training
 
-> Infragraph is an HCP resource graph that connects supported data sources and
-> helps users explore infrastructure inventory and relationships through
-> queries and graph views.
+### Step 1: Select and inventory
 
-Keep this section to an overview unless the customer has access and has
-completed connection prerequisites.
-
-Important limitations to state:
-
-- It is not real-time.
-- It does not perform HCP Terraform drift detection.
-- It does not automatically detect or remediate vulnerabilities.
-- Supported connections and resource types are limited.
-- Availability and beta status must be confirmed for the customer's region and
-  subscription before demonstration.
-
-### Session checkpoint questions
-
-1. What does the central platform team own?
-2. What do application teams continue to own?
-3. Why should policies begin in advisory mode?
-4. Why are Vault EGP and Sentinel not interchangeable?
-5. What does Infragraph not replace?
-
-## Pilot execution plan
-
-### Phase 1: Design
-
-- Select one development namespace or one new team onboarding request.
-- Inventory its namespace, policies, groups, auth requirements, secrets engines,
+- Select one development team or namespace.
+- Inventory namespace, policies, groups, auth requirements, secrets engines,
   quotas, and dependencies.
-- Decide the final Terraform resource addresses before import.
-- Define the workspace and state boundary.
-- Define module ownership and approval roles.
-- Define Vault Agent connectivity and OIDC requirements.
+- Decide the exact Terraform resource addresses before import.
+- Define the workspace, state, owners, and approvers.
 
-### Phase 2: Build
+### Step 2: Build
 
-- Create the module repository.
-- Create the development consumer configuration.
-- Define non-sensitive JSON inputs.
-- Add validation and Terraform tests.
-- Add Jenkins static checks.
-- Publish or pin the first approved module version.
+- Build the reusable module.
+- Define non-sensitive JSON input.
+- Add validation, tests, and Jenkins scanning.
+- Use a dedicated development consumer configuration.
 
-### Phase 3: Import or create
+### Step 3: Import or create
 
-- For a new pilot team, create the resources through Terraform.
-- For an existing pilot team, import one resource category at a time.
+- For a new team, create the selected resources through Terraform.
+- For an existing team, import one resource category at a time.
 - Reconcile every first plan.
-- Use moved blocks only when resource addresses change.
+- Use moved blocks only when addresses change.
 
-### Phase 4: Govern
+### Step 4: Govern
 
 - Connect the workspace to GitHub.
 - Disable auto-apply.
-- Configure Agent execution.
-- Configure Vault OIDC dynamic credentials.
-- Add policy checks and the approved scanner integration.
-- Apply through authorized approval.
+- Configure Agent execution and Vault OIDC.
+- Add required policies, run tasks, and approvals.
 
-### Phase 5: Validate
+### Step 5: Validate
 
-- Confirm Vault resources match the approved configuration.
-- Confirm state contains the expected resource addresses.
-- Confirm no secrets were committed or exposed in plan output.
-- Create controlled development drift.
-- Confirm the drift is detected and reviewed.
+- Confirm Vault matches the approved configuration.
+- Confirm state contains only the intended resources.
+- Confirm no secrets appear in Git or plan output.
+- Create and detect one controlled development drift event.
 - Document lessons before expanding.
 
 ## Pilot success criteria
 
-The pilot succeeds only if:
-
-- [ ] One engineer can onboard or manage the pilot team through reviewed
-  configuration.
-- [ ] The reusable module produces consistent resources.
+- [ ] One engineer can onboard or manage the pilot through reviewed JSON input.
+- [ ] The module produces consistent, validated Vault resources.
 - [ ] The workspace owns only the intended development resources.
 - [ ] The plan contains no unintended deletion or replacement.
-- [ ] Jenkins checks pass.
-- [ ] HCP Terraform policy and approval gates work.
-- [ ] The Agent can reach Vault without exposing Vault publicly.
-- [ ] HCP Terraform authenticates with short-lived credentials.
-- [ ] State is stored in HCP Terraform and access is restricted.
+- [ ] Jenkins checks and the selected scanner pass.
+- [ ] HCP Terraform policies and approval gates work.
+- [ ] The Agent reaches Vault without making Vault public.
+- [ ] HCP Terraform uses short-lived Vault credentials.
+- [ ] State is stored in HCP Terraform with restricted access.
 - [ ] A controlled manual change is detected as drift.
 - [ ] Operational jobs remain outside the Terraform state workflow.
-- [ ] Module owner, approver, and support ownership are documented.
+- [ ] Module, approval, and support ownership are documented.
 
 ## Trainer troubleshooting guide
 
 | Symptom | Likely cause | Safe response |
 | --- | --- | --- |
-| `terraform init` cannot download provider | Network, proxy, or registry restriction | Use the prepared environment or screenshots |
-| Vault connection refused | Container stopped or wrong `VAULT_ADDR` | Check `docker ps` and `vault status` |
+| `terraform init` cannot download a provider | Network, proxy, or registry restriction | Use the prepared environment or screenshots |
+| Vault connection refused | Container stopped or incorrect `VAULT_ADDR` | Check the container and `vault status` |
 | Vault returns 403 | Token or policy lacks capability | Stop and ask the Vault administrator |
-| HCP run cannot reach Vault | Agent DNS, routing, firewall, or CA issue | Do not switch to public access; validate Agent path |
-| OIDC authentication fails | Issuer, audience, bound claims, role, namespace, or CA mismatch | Compare against the approved trust configuration |
-| Import returns permission denied | Wrong namespace or missing import namespace variable | Verify `TERRAFORM_VAULT_NAMESPACE_IMPORT` |
-| First plan proposes replacement | Configuration differs on a force-new argument | Stop and reconcile before apply |
-| HCP pull request has no speculative plan | Workspace VCS branch or path is not connected correctly | Check VCS and working-directory settings |
-| Health assessment does not run | No successful apply, unsupported execution mode, disabled feature, or latest run failed | Fix eligibility before waiting |
+| HCP run cannot reach Vault | Agent DNS, route, firewall, or CA issue | Validate the Agent path; do not make Vault public |
+| OIDC authentication fails | Issuer, audience, claim, role, namespace, or CA mismatch | Compare with the approved trust design |
+| Import returns permission denied | Wrong namespace or insufficient policy | Verify the import namespace and permissions |
+| First plan proposes replacement | Configuration differs on a replacement argument | Stop and reconcile before apply |
+| No speculative plan appears | VCS branch, path, or workspace connection is wrong | Check VCS and working-directory settings |
+| Health assessment does not run | Feature disabled or workspace not eligible | Confirm settings and the last successful apply |
 | Scanner and HCP policy disagree | They evaluate different inputs and rules | Identify which control owns the requirement |
 
-## What not to say to the customer
+## Trainer safety reminders
 
-Do not say:
+Do not tell the customer:
 
-- "Every Terraform resource supports import."
-- "Import means the next plan will have no changes."
-- "A data source imports the resource."
-- "The module knows the current infrastructure."
-- "The Agent gives Terraform its Vault credentials."
-- "Run tasks promote development to production."
-- "Infragraph detects and fixes drift."
-- "Harbor automatically scans Terraform code."
-- "We will put all namespaces in one state."
-- "We will automate every ad hoc operation with Terraform."
-- "I am not the Vault person."
-- "I will figure it out during the live demo."
+- Every resource supports import.
+- Import guarantees the next plan has no changes.
+- A data source imports a resource.
+- A module knows the current infrastructure.
+- The Agent supplies the Vault credential.
+- Run tasks promote development to production.
+- Infragraph detects and fixes drift.
+- Harbor automatically scans Terraform code.
+- All namespaces should share one state.
+- Every ad hoc operation should use Terraform.
 
-Use:
+When a Vault-specific answer is uncertain, say:
 
-> I will validate that part with the Vault specialist and include the confirmed
-> design in the technical session.
+> I will validate that with the Vault specialist and return with the confirmed
+> design. I do not want to guess about a security-sensitive configuration.
 
-## Trainer final rehearsal
+## Final trainer rehearsal
 
-Run this sequence before delivery:
+Complete this checklist before delivery:
 
-1. Deliver the Session 1 explanation without notes in under ten minutes.
-2. Complete the local Terraform lab from an empty directory.
-3. Complete the Vault module lab from an empty directory.
-4. Break the JSON validation intentionally and explain the error.
-5. Create and import the unmanaged Vault mount.
-6. Produce a mismatched plan and explain why apply must stop.
-7. Refactor a resource with a moved block.
-8. Walk through the HCP workflow diagram without calling the Agent a credential.
-9. Explain Checkov, run tasks, Sentinel, Vault EGP, and drift separately.
-10. State the pilot success criteria and next action clearly.
+1. Explain the Terraform lifecycle without notes in under five minutes.
+2. Build the Vault module from an empty directory.
+3. Add a second team and explain the plan.
+4. Trigger and explain the input validation error.
+5. Create and import an unmanaged Vault mount.
+6. Produce a mismatch and explain why apply must stop.
+7. Explain a moved block without calling it an import.
+8. Walk through the HCP workflow without calling the Agent a credential.
+9. Explain scanning, run tasks, policy, Vault EGP, and drift separately.
+10. Deliver all three quizzes and explain every answer.
 
-If you cannot complete these steps yourself, you are not ready to demonstrate
-them live. Use a controlled walkthrough and bring the correct specialist.
+If you cannot complete a step, use a controlled walkthrough and bring the
+appropriate specialist. Do not improvise in the customer environment.
 
 ## Official references
 
@@ -1509,14 +1373,12 @@ them live. Use a controlled walkthrough and bring the correct specialist.
 - [HCP Terraform health assessments](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/health)
 - [HCP Terraform run tasks](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/settings/run-tasks)
 - [HCP Terraform private registry](https://developer.hashicorp.com/terraform/cloud-docs/registry)
-- [Private module testing](https://developer.hashicorp.com/terraform/cloud-docs/registry/test)
 - [No-code module design](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/no-code-provisioning/module-design)
 - [Terraform generated import configuration](https://developer.hashicorp.com/terraform/language/import/generating-configuration)
 - [Manage Vault programmatically with Terraform](https://developer.hashicorp.com/vault/docs/configuration/programmatic-management)
 - [Learn the Terraform Vault provider](https://developer.hashicorp.com/vault/tutorials/get-started/learn-terraform)
 - [Codify Vault Enterprise management](https://developer.hashicorp.com/vault/tutorials/operations/codify-mgmt-enterprise)
 - [Validated pattern: manage Vault policies with HCP Terraform](https://developer.hashicorp.com/validated-patterns/vault/manage-vault-with-terraform)
-- [Vault provider namespace support and namespaced imports](https://registry.terraform.io/providers/hashicorp/vault/latest/docs)
 - [Vault provider dynamic credentials](https://developer.hashicorp.com/terraform/cloud-docs/dynamic-provider-credentials/vault-configuration)
 - [HCP Terraform project best practices](https://developer.hashicorp.com/terraform/cloud-docs/projects/best-practices)
 - [HCP Terraform policy sets](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/policy-enforcement/manage-policy-sets)
@@ -1524,10 +1386,8 @@ them live. Use a controlled walkthrough and bring the correct specialist.
 
 ## Final customer close
 
-Use this at the end of the series:
-
-> We established a repeatable Vault development pilot using reusable Terraform
-> configuration, review, security checks, approvals, short-lived authentication,
-> managed state, and drift visibility. The next decision is whether to expand
-> this pattern to additional Vault namespaces and then to other infrastructure
-> teams through federated HCP Terraform governance.
+> We used three progressive sessions to establish the Terraform baseline, build
+> reusable Vault configuration, practice safe import, and walk through the
+> governed HCP Terraform workflow. The next step is one development pilot. We
+> will validate the pattern there before expanding to additional namespaces or
+> broader enterprise governance.
