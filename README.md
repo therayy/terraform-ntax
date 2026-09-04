@@ -108,6 +108,17 @@ flowchart TD
 >
 > In this training, Terraform uses the Vault provider to call the Vault API.
 
+### Provider documentation and versions
+
+### Read aloud
+
+> The provider documentation shows the resources and data sources that the
+> provider supports.
+>
+> We must check the documentation for the provider version we use. If a new
+> service or feature is not supported by that version, Terraform cannot manage
+> it through that provider yet.
+
 ### Resource
 
 ### Read aloud
@@ -156,6 +167,16 @@ flowchart TD
 >
 > The module does not know the existing infrastructure by itself. Terraform
 > uses the provider and state to understand managed objects.
+
+### Provider and module together
+
+### Read aloud
+
+> A provider connects Terraform to a system and its API. A module packages
+> reusable Terraform code.
+>
+> The resources inside a module still use a provider. A module does not replace
+> the provider.
 
 ### Terraform workflow
 
@@ -776,6 +797,12 @@ flowchart TD
 ### Read aloud
 
 > An HCP Terraform workspace is an execution and state boundary.
+>
+> A workspace is not only a folder. It has its own runs, state, variables,
+> permissions, and settings.
+>
+> An HCP Terraform project groups related workspaces and helps us manage access
+> to those workspaces.
 >
 > We separate workspaces based on ownership, environment, access, lifecycle,
 > dependencies, and blast radius.
@@ -1591,12 +1618,33 @@ provider "vault" {}
 > We create an exception process. After the policy is stable, we can make it
 > mandatory.
 
-## Step 9: Show the private module registry path
+## Step 9: Separate HCP Terraform access from Vault access
+
+### Read aloud
+
+> We have two permission layers.
+>
+> HCP Terraform permissions control who can view, plan, apply, approve, and
+> manage projects and workspaces.
+>
+> Vault permissions control what Terraform can create or change inside Vault.
+> This includes Vault namespaces, ACL policies, and EGP or RGP policies.
+>
+> We need both layers. HCP Terraform access does not replace Vault access.
+
+## Step 10: Show the private module registry path
 
 ### Read aloud
 
 > After the module works in the pilot, we can publish it to the HCP Terraform
 > private registry.
+>
+> The public Terraform Registry can be used by anyone. The private registry
+> gives Nutanix control over which internal modules are published and who can
+> use them.
+>
+> Private does not automatically mean secure. Every module still needs review,
+> testing, scanning, versioning, and maintenance.
 >
 > The module should have its own Git repository, documentation, examples, tests,
 > and security scans. A pull request reviews every module change.
@@ -1607,7 +1655,7 @@ provider "vault" {}
 > We do not silently change a shared module and force every team to receive the
 > change without review.
 
-## Step 10: Introduce Infragraph
+## Step 11: Introduce Infragraph
 
 ### Read aloud
 
