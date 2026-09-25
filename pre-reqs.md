@@ -1,12 +1,14 @@
-# Training Prerequisites
+# Workshop Prerequisites
 
 <!-- markdownlint-disable MD013 -->
+
+[Back to the workshop landing page](./README.md)
 
 Complete this file before delivering the Nutanix Terraform and Vault training.
 
 You need only one container runtime:
 
-- Option A: Podman
+- Option A: Podmana
 - Option B: Docker
 
 Do not run both at the same time. Both may try to use port `8200`.
@@ -354,13 +356,13 @@ directory.
 
 | Lab | First run | Second run |
 | --- | --- | --- |
-| Session 1 module lab | Pending | Pending |
+| Workshop 1 module lab | Pending | Pending |
 | Add a second JSON team | Pending | Pending |
 | Input validation test | Pending | Pending |
-| Session 2 CLI import | Pending | Pending |
-| Session 2 import block explanation | Pending | Pending |
+| Workshop 2 CLI import | Pending | Pending |
+| Workshop 2 import block explanation | Pending | Pending |
 | Moved block plan | Pending | Pending |
-| Session 3 HCP workflow | Pending | Pending |
+| Workshop 3 HCP workflow | Pending | Pending |
 | Drift walkthrough | Pending | Pending |
 
 A command working is not enough. You must be able to explain what happened.
@@ -370,14 +372,14 @@ A command working is not enough. You must be able to explain what happened.
 Create folders:
 
 ```bash
-mkdir -p training-evidence/session-1
-mkdir -p training-evidence/session-2
-mkdir -p training-evidence/session-3
+mkdir -p training-evidence/workshop-1
+mkdir -p training-evidence/workshop-2
+mkdir -p training-evidence/workshop-3
 ```
 
 Save these screenshots:
 
-### Session 1
+### Workshop 1
 
 - `terraform validate` success
 - Terraform plan
@@ -386,7 +388,7 @@ Save these screenshots:
 - Vault secrets list
 - Input validation failure
 
-### Session 2
+### Workshop 2
 
 - Vault mount before import
 - Successful import
@@ -394,7 +396,7 @@ Save these screenshots:
 - First plan after import
 - Moved block plan with no deletion
 
-### Session 3
+### Workshop 3
 
 - GitHub pull request
 - Jenkins checks
@@ -471,6 +473,27 @@ For an HCP Terraform demonstration, confirm:
 - A second person confirms the environment before apply.
 
 If the environment is unclear, stop. Do not run Terraform.
+
+## 12. Prepare the optional Enterprise extension
+
+The core labs require Terraform 1.5 or later and can use Vault Community.
+
+Running the full 20-minute Enterprise reference extension requires:
+
+- [ ] Terraform 1.11 or later
+- [ ] Vault provider 5.0 or later
+- [ ] Vault Enterprise Standard license for namespaces
+- [ ] Vault Enterprise ADP license for Transform
+- [ ] Git access to `hashicorp-education/learn-vault-codify`
+- [ ] A disposable Vault Enterprise development server
+- [ ] `VAULT_LICENSE` available in the shell but not printed or recorded
+- [ ] `VAULT_ADDR`, `VAULT_CACERT`, and `VAULT_TOKEN` configured locally
+
+If these requirements are not ready, deliver the section as a code walkthrough.
+Do not spend workshop time debugging Enterprise licensing or connectivity.
+
+Never use a production root token or copy the tutorial's demonstration password
+pattern into customer code.
 
 ## Ready-to-train checklist
 
