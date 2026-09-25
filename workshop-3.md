@@ -18,7 +18,7 @@ The detailed sections below are your technical reference.
 
 ## Workshop 3 goal
 
-### Read aloud
+### Notes!
 
 > Today we will follow one change from GitHub to Vault.
 >
@@ -32,14 +32,14 @@ The detailed sections below are your technical reference.
 
 ### GitHub
 
-### Read aloud
+### Notes!
 
 > GitHub stores the Terraform code and JSON configuration. A pull request gives
 > the team a place to review the code before merging it.
 
 ### Jenkins
 
-### Read aloud
+### Notes!
 
 > Jenkins runs automated checks. It can check formatting, validate Terraform,
 > run tests, and run a security scanner such as Trivy, Checkov, or Cycode.
@@ -49,14 +49,14 @@ The detailed sections below are your technical reference.
 
 ### HCP Terraform
 
-### Read aloud
+### Notes!
 
 > HCP Terraform runs Terraform, stores state, connects to GitHub, shows plans,
 > applies approved changes, enforces policies, and keeps run history.
 
 ### Speculative plan
 
-### Read aloud
+### Notes!
 
 > A speculative plan is a preview for a pull request. It helps reviewers see
 > the expected infrastructure change before the code is merged.
@@ -65,7 +65,7 @@ The detailed sections below are your technical reference.
 
 ### HCP Terraform Agent
 
-### Read aloud
+### Notes!
 
 > The Agent runs Terraform inside the private network. It allows HCP Terraform
 > to reach a private Vault API without making Vault public.
@@ -74,7 +74,7 @@ The detailed sections below are your technical reference.
 
 ### OIDC dynamic credentials
 
-### Read aloud
+### Notes!
 
 > OIDC lets an HCP Terraform run authenticate to Vault with short-lived
 > credentials.
@@ -84,7 +84,7 @@ The detailed sections below are your technical reference.
 
 ### Policies, run tasks, and Vault EGP
 
-### Read aloud
+### Notes!
 
 > These controls work at different layers.
 >
@@ -96,7 +96,7 @@ The detailed sections below are your technical reference.
 
 ### Drift detection
 
-### Read aloud
+### Notes!
 
 > Drift happens when the real Vault configuration changes outside the approved
 > Terraform workflow.
@@ -124,7 +124,7 @@ vault-platform/
 `-- Jenkinsfile
 ```
 
-### Read aloud
+### Notes!
 
 > The `modules` folder contains reusable code.
 >
@@ -167,7 +167,7 @@ pipeline {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > The first stage checks Terraform formatting.
 >
@@ -209,7 +209,7 @@ Open HCP Terraform and complete these steps:
 12. Add the required policy sets and run tasks.
 13. Enable health assessments after the first successful apply.
 
-### Read aloud
+### Notes!
 
 > This workspace manages only the development pilot.
 >
@@ -245,7 +245,7 @@ The provider configuration stays simple:
 provider "vault" {}
 ```
 
-### Read aloud
+### Notes!
 
 > HCP Terraform uses these settings to request short-lived Vault credentials.
 >
@@ -259,7 +259,7 @@ provider "vault" {}
 
 ## Step 5: Follow one GitHub change
 
-### Read aloud
+### Notes!
 
 > I will now follow one development change through the complete workflow.
 
@@ -279,7 +279,7 @@ provider "vault" {}
 12. Open the Agent run output.
 13. Open the final state and run history.
 
-### Read aloud
+### Notes!
 
 > The pull request gives us code review. Jenkins gives us automated code checks.
 > The speculative plan gives us an infrastructure preview before merge.
@@ -303,7 +303,7 @@ provider "vault" {}
 | Vault EGP or RGP | Vault API requests |
 | Health assessment | Drift after deployment |
 
-### Read aloud
+### Notes!
 
 > Formatting and validation find basic code problems.
 >
@@ -321,7 +321,7 @@ provider "vault" {}
 
 ## Step 7: Show drift detection
 
-### Read aloud
+### Notes!
 
 > I will make one controlled manual change in development Vault. This represents
 > a change made outside the approved Terraform workflow.
@@ -334,7 +334,7 @@ provider "vault" {}
 4. Start or wait for the next health assessment.
 5. Open the drift result.
 
-### Read aloud
+### Notes!
 
 > HCP Terraform detected that the real Vault configuration no longer matches
 > the Terraform configuration.
@@ -363,7 +363,7 @@ provider "vault" {}
 | Agent and credential patterns | Daily use of the approved pattern |
 | Audit and governance visibility | Its infrastructure responsibility |
 
-### Read aloud
+### Notes!
 
 > The central team should not own every other team's Terraform code and every
 > apply.
@@ -380,7 +380,7 @@ provider "vault" {}
 
 ## Step 9: Separate HCP Terraform access from Vault access
 
-### Read aloud
+### Notes!
 
 > We have two permission layers.
 >
@@ -394,7 +394,7 @@ provider "vault" {}
 
 ## Step 10: Show the private module registry path
 
-### Read aloud
+### Notes!
 
 > After the module works in the pilot, we can publish it to the HCP Terraform
 > private registry.
@@ -417,7 +417,7 @@ provider "vault" {}
 
 ## Step 11: Introduce Infragraph
 
-### Read aloud
+### Notes!
 
 > Infragraph gives visibility into supported infrastructure resources and the
 > relationships between them.
@@ -432,7 +432,7 @@ provider "vault" {}
 
 ## Practice 1: Put the workflow in order
 
-### Read aloud
+### Notes!
 
 > Put these steps in the correct order: GitHub pull request, Jenkins checks,
 > speculative plan, peer review and merge, HCP Terraform workspace plan,
@@ -451,7 +451,7 @@ provider "vault" {}
 
 ## Practice 2: Choose the correct control
 
-### Read aloud
+### Notes!
 
 > Match each requirement with its main control.
 
@@ -467,7 +467,7 @@ provider "vault" {}
 
 ## Practice 3: Choose Terraform or an operational job
 
-### Read aloud
+### Notes!
 
 > Decide whether each activity belongs in Terraform desired state or in a
 > separate operational job.
@@ -481,7 +481,7 @@ provider "vault" {}
 | Run Vault upgrade tests | Operational job |
 | Perform a one-time data migration | Operational job |
 
-### Read aloud
+### Notes!
 
 > Terraform is good for describing what should exist.
 >
@@ -490,7 +490,7 @@ provider "vault" {}
 
 ## Part 4: Quiz
 
-### Read aloud
+### Notes!
 
 > We will finish with five short questions. Choose the best answer.
 
@@ -530,7 +530,7 @@ provider "vault" {}
 
 ## Workshop 3 closing notes
 
-### Read aloud
+### Notes!
 
 > We now have a complete target pattern.
 >
@@ -551,7 +551,7 @@ provider "vault" {}
 
 ## Development pilot
 
-### Read aloud
+### Notes!
 
 > The first pilot will use one new or existing development team namespace.
 >
@@ -587,7 +587,7 @@ provider "vault" {}
 
 ## Pilot success
 
-### Read aloud
+### Notes!
 
 > The pilot succeeds when one engineer can add or manage the pilot team through
 > reviewed configuration, the module creates consistent resources, and the

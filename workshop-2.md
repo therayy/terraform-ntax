@@ -18,7 +18,7 @@ The detailed sections below are your technical reference.
 
 ## Workshop 2 goal
 
-### Read aloud
+### Notes!
 
 > Today we will work with a Vault resource that already exists.
 >
@@ -32,7 +32,7 @@ The detailed sections below are your technical reference.
 
 ### Import
 
-### Read aloud
+### Notes!
 
 > Import connects an existing real object to a Terraform resource address in
 > state.
@@ -42,7 +42,7 @@ The detailed sections below are your technical reference.
 
 ### Resource address and import ID
 
-### Read aloud
+### Notes!
 
 > The resource address is the name Terraform uses in configuration and state.
 > An example is `vault_mount.legacy`.
@@ -55,7 +55,7 @@ The detailed sections below are your technical reference.
 
 ### First plan after import
 
-### Read aloud
+### Notes!
 
 > After import, Terraform compares three things: our code, the state mapping,
 > and the real Vault resource.
@@ -78,7 +78,7 @@ flowchart TD
 
 ### Data source
 
-### Read aloud
+### Notes!
 
 > A data source reads an existing object. It does not import the object and does
 > not give Terraform ownership of it.
@@ -88,7 +88,7 @@ flowchart TD
 
 ### Moved block
 
-### Read aloud
+### Notes!
 
 > A moved block changes the Terraform address of a managed resource.
 >
@@ -97,7 +97,7 @@ flowchart TD
 
 ### Workspace and state
 
-### Read aloud
+### Notes!
 
 > An HCP Terraform workspace is an execution and state boundary.
 >
@@ -130,14 +130,14 @@ export VAULT_TOKEN=training-root
 vault status
 ```
 
-### Read aloud
+### Notes!
 
 > This is a new disposable Vault server for Workshop 2. It is initialized,
 > unsealed, and running only on my local machine.
 
 ## Step 2: Create an unmanaged Vault mount
 
-### Read aloud
+### Notes!
 
 > First, I will create a Vault secrets engine outside Terraform. This represents
 > an existing Vault resource that was created by a script or manual command.
@@ -149,7 +149,7 @@ vault secrets enable -path=legacy-kv kv-v2
 vault secrets list
 ```
 
-### Read aloud
+### Notes!
 
 > The `legacy-kv` mount exists in Vault. Terraform does not know about it yet
 > because it is not in Terraform state.
@@ -190,7 +190,7 @@ resource "vault_mount" "legacy" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > This resource block describes how Terraform should manage the existing
 > `legacy-kv` mount.
@@ -207,7 +207,7 @@ terraform init
 terraform import vault_mount.legacy legacy-kv
 ```
 
-### Read aloud
+### Notes!
 
 > `vault_mount.legacy` is the Terraform resource address.
 >
@@ -224,7 +224,7 @@ terraform state show vault_mount.legacy
 terraform plan
 ```
 
-### Read aloud
+### Notes!
 
 > The state now contains `vault_mount.legacy`.
 >
@@ -236,7 +236,7 @@ terraform plan
 
 ## Step 5: Show the import block method
 
-### Read aloud
+### Notes!
 
 > The CLI import changes state immediately. Terraform also has a declarative
 > import block.
@@ -253,7 +253,7 @@ import {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > `to` is the Terraform resource address. `id` is the existing Vault object ID.
 >
@@ -273,7 +273,7 @@ terraform apply
 
 ## Step 6: Show generated configuration
 
-### Read aloud
+### Notes!
 
 > Terraform can generate starting configuration for supported resources.
 >
@@ -299,7 +299,7 @@ import {
 terraform plan -generate-config-out=generated.tf
 ```
 
-### Read aloud
+### Notes!
 
 > This command needs an import block with no matching resource block. Terraform
 > reads the existing object and writes starting resource configuration into
@@ -307,7 +307,7 @@ terraform plan -generate-config-out=generated.tf
 
 ## Step 7: Show a data source
 
-### Read aloud
+### Notes!
 
 > This example reads existing Vault namespace information. It does not import
 > the namespaces and does not make Terraform their owner.
@@ -326,7 +326,7 @@ data "vault_namespaces" "existing" {
 
 ## Step 8: Move the imported resource into a module
 
-### Read aloud
+### Notes!
 
 > Our imported resource currently has the address `vault_mount.legacy`.
 >
@@ -391,7 +391,7 @@ terraform init
 terraform plan
 ```
 
-### Read aloud
+### Notes!
 
 > The destination resource now exists inside `module.legacy_mount`.
 >
@@ -413,7 +413,7 @@ terraform plan
 | Vault production | Production team resources |
 | Governance | Shared Terraform policies, if ownership is separate |
 
-### Read aloud
+### Notes!
 
 > This is a starting point, not a final workspace list.
 >
@@ -429,7 +429,7 @@ terraform plan
 
 ## Practice 1: Import another Vault mount
 
-### Read aloud
+### Notes!
 
 > You will now create and import a second training mount named `practice-kv`.
 >
@@ -473,7 +473,7 @@ terraform plan
 
 ## Practice 2: Choose workspace boundaries
 
-### Read aloud
+### Notes!
 
 > Place each item into a reasonable workspace: shared Vault configuration,
 > development team configuration, production team configuration, Terraform
@@ -492,7 +492,7 @@ terraform plan
 
 ## Part 4: Quiz
 
-### Read aloud
+### Notes!
 
 > We will finish with five short questions. Choose the best answer.
 
@@ -532,7 +532,7 @@ terraform plan
 
 ## Workshop 2 closing notes
 
-### Read aloud
+### Notes!
 
 > Today we connected existing Vault resources to Terraform state. We reviewed
 > the CLI import method, the import block, generated configuration, data

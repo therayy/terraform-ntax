@@ -20,7 +20,7 @@ The detailed sections below are your technical reference.
 
 ## Opening speaker notes
 
-### Read aloud
+### Notes!
 
 > Good morning, everyone. Thank you for joining.
 >
@@ -43,7 +43,7 @@ The detailed sections below are your technical reference.
 
 ## The final workflow
 
-### Read aloud
+### Notes!
 
 > This is the workflow we are working toward.
 >
@@ -72,7 +72,7 @@ flowchart TD
 
 ## Workshop 1 goal
 
-### Read aloud
+### Notes!
 
 > Today we will review the basic Terraform workflow. Then we will build a small
 > reusable module that creates a Vault KV secrets engine and a Vault policy.
@@ -89,7 +89,7 @@ flowchart TD
 
 ### Configuration
 
-### Read aloud
+### Notes!
 
 > Terraform configuration is the code that describes what we want.
 >
@@ -98,7 +98,7 @@ flowchart TD
 
 ### Provider
 
-### Read aloud
+### Notes!
 
 > A provider is the plugin Terraform uses to communicate with another system.
 >
@@ -106,7 +106,7 @@ flowchart TD
 
 ### Provider documentation and versions
 
-### Read aloud
+### Notes!
 
 > The provider documentation shows the resources and data sources that the
 > provider supports.
@@ -117,7 +117,7 @@ flowchart TD
 
 ### Resource
 
-### Read aloud
+### Notes!
 
 > A resource is something Terraform creates or manages.
 >
@@ -126,7 +126,7 @@ flowchart TD
 
 ### Data source
 
-### Read aloud
+### Notes!
 
 > A data source reads information that already exists.
 >
@@ -135,7 +135,7 @@ flowchart TD
 
 ### State
 
-### Read aloud
+### Notes!
 
 > Terraform state is Terraform's record of the objects it manages.
 >
@@ -144,7 +144,7 @@ flowchart TD
 
 ### Plan and apply
 
-### Read aloud
+### Notes!
 
 > Terraform plan shows what Terraform wants to change. Terraform apply makes
 > the approved change.
@@ -154,7 +154,7 @@ flowchart TD
 
 ### Module
 
-### Read aloud
+### Notes!
 
 > A module is reusable Terraform code.
 >
@@ -166,7 +166,7 @@ flowchart TD
 
 ### Provider and module together
 
-### Read aloud
+### Notes!
 
 > A provider connects Terraform to a system and its API. A module packages
 > reusable Terraform code.
@@ -176,7 +176,7 @@ flowchart TD
 
 ### Terraform workflow
 
-### Read aloud
+### Notes!
 
 > First, we write the Terraform code. Next, Terraform initializes the working
 > directory. Then Terraform creates a plan. We review the plan. If it is correct,
@@ -196,7 +196,7 @@ flowchart TD
 
 ## Step 1: Start the local Vault server
 
-### Read aloud
+### Notes!
 
 > I am using a local Vault development server. This server is only for
 > training. It runs in memory, starts unsealed, and loses its data when the
@@ -225,7 +225,7 @@ Sealed          false
 Storage Type    inmem
 ```
 
-### Read aloud
+### Notes!
 
 > Vault is initialized and unsealed. The storage type is in-memory. That tells
 > us this is the disposable training server.
@@ -256,7 +256,7 @@ vault-team-training/
             `-- reader-policy.hcl.tftpl
 ```
 
-### Read aloud
+### Notes!
 
 > The files at the top are the root module. The folder under `modules` is the
 > reusable child module.
@@ -283,7 +283,7 @@ terraform {
 provider "vault" {}
 ```
 
-### Read aloud
+### Notes!
 
 > This file requires Terraform 1.5 or later. It also tells Terraform to download
 > the HashiCorp Vault provider.
@@ -308,7 +308,7 @@ provider "vault" {}
 }
 ```
 
-### Read aloud
+### Notes!
 
 > This JSON file contains one team named payments.
 >
@@ -336,7 +336,7 @@ module "team_config" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > Terraform reads `teams.json` and converts it into data Terraform can use.
 >
@@ -361,7 +361,7 @@ output "team_mounts" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > This output shows the KV mount created for each team. Outputs give us useful
 > information after the plan or apply.
@@ -390,7 +390,7 @@ variable "enable_kv" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > These are the inputs accepted by the module.
 >
@@ -415,7 +415,7 @@ path "${mount_path}/metadata/*" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > This template creates the same policy structure for every team.
 >
@@ -463,7 +463,7 @@ resource "vault_policy" "team_reader" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > The local value builds a mount path from the team name. The payments team gets
 > a path named `payments-kv`.
@@ -487,7 +487,7 @@ output "mount_path" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > The child module returns the mount path to the root module. If KV is disabled,
 > the output is null.
@@ -500,7 +500,7 @@ output "mount_path" {
 terraform init
 ```
 
-### Read aloud
+### Notes!
 
 > Terraform initialized the folder and downloaded the Vault provider.
 
@@ -511,7 +511,7 @@ terraform fmt -recursive
 terraform validate
 ```
 
-### Read aloud
+### Notes!
 
 > Formatting makes the code consistent. Validation checks that the Terraform
 > configuration is valid.
@@ -522,7 +522,7 @@ terraform validate
 terraform plan -out=tfplan
 ```
 
-### Read aloud
+### Notes!
 
 > The plan should show one KV mount and one policy being created for the
 > payments team.
@@ -546,7 +546,7 @@ module.team_config["payments"].vault_mount.team_kv[0]
 module.team_config["payments"].vault_policy.team_reader[0]
 ```
 
-### Read aloud
+### Notes!
 
 > Terraform created the Vault resources and recorded them in state.
 >
@@ -562,7 +562,7 @@ the Enterprise prerequisites are ready.
 
 ### Why this section belongs in Workshop 1
 
-### Read aloud
+### Notes!
 
 > The first lab taught the core pattern with a KV mount and policy.
 >
@@ -582,7 +582,7 @@ the Enterprise prerequisites are ready.
 
 ### Challenge and solution
 
-### Read aloud
+### Notes!
 
 > Manual configuration becomes difficult when an organization manages
 > development, testing, staging, and production Vault environments.
@@ -645,7 +645,7 @@ enterprise/
     `-- fpe-client-policy.hcl
 ```
 
-### Read aloud
+### Notes!
 
 > The files are separated by responsibility.
 >
@@ -673,7 +673,7 @@ terraform {
 provider "vault" {}
 ```
 
-### Read aloud
+### Notes!
 
 > The provider reads the target Vault address and authentication from the
 > runtime environment.
@@ -704,7 +704,7 @@ resource "vault_namespace" "boundary" {
 }
 ```
 
-### Read aloud
+### Notes!
 
 > The `namespace` argument identifies the parent. Terraform references the
 > parent's path instead of repeating a hard-coded hierarchy.
@@ -714,7 +714,7 @@ resource "vault_namespace" "boundary" {
 
 ### Policies, authentication, and secrets engines
 
-### Read aloud
+### Notes!
 
 > The reference code creates the same `admins` policy in several namespaces.
 > That demonstrates the behavior, but our customer design should package the
@@ -730,7 +730,7 @@ resource "vault_namespace" "boundary" {
 
 ### Ephemeral and write-only values
 
-### Read aloud
+### Notes!
 
 > The reference tutorial also demonstrates two protections for sensitive
 > values.
@@ -780,7 +780,7 @@ terraform plan
 terraform apply
 ```
 
-### Read aloud
+### Notes!
 
 > The plan should show the intended Enterprise configuration. The official
 > reference currently creates 28 objects on the first apply.
@@ -803,7 +803,7 @@ vault auth list -namespace=education/training
 vault list -namespace=education/training auth/approle/role
 ```
 
-### Read aloud
+### Notes!
 
 > Verification proves that Terraform configured the intended namespace, not
 > only that the Terraform command returned successfully.
@@ -829,7 +829,7 @@ vault list -namespace=education/training auth/approle/role
 
 ## Practice 1: Add a second team
 
-### Read aloud
+### Notes!
 
 > Now you will add a second team named analytics. Do not apply immediately.
 > First, run a plan and tell us what Terraform wants to add.
@@ -866,7 +866,7 @@ terraform plan
 
 ## Practice 2: Test the condition
 
-### Read aloud
+### Notes!
 
 > Change `analytics.enable_kv` from true to false. Run a plan. Do not apply.
 > Tell us why Terraform wants to remove the analytics resources.
@@ -883,7 +883,7 @@ Run:
 terraform plan
 ```
 
-### Read aloud
+### Notes!
 
 > The condition changed the resource count from one to zero. Terraform now
 > believes the analytics KV mount and policy should not exist.
@@ -894,7 +894,7 @@ Restore the value to true.
 
 ## Practice 3: Test validation
 
-### Read aloud
+### Notes!
 
 > Change the analytics team name to `Analytics Team` and run a plan. The name is
 > invalid because it contains uppercase letters and a space.
@@ -917,7 +917,7 @@ Restore the team name to `analytics`.
 
 ## Part 4: Quiz
 
-### Read aloud
+### Notes!
 
 > We will finish with five short questions. Choose the best answer.
 
@@ -957,7 +957,7 @@ Restore the team name to `analytics`.
 
 ## Workshop 1 closing notes
 
-### Read aloud
+### Notes!
 
 > Today we reviewed the Terraform lifecycle and built a reusable Vault module.
 > We used JSON input, `for_each`, a condition, input validation, and a policy
