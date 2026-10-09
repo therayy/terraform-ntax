@@ -15,7 +15,7 @@ Do not run both at the same time. Both may try to use port `8200`.
 
 ## Current trainer status
 
-Verified on 2026-09-03:
+
 
 | Requirement | Status | Evidence |
 | --- | --- | --- |
