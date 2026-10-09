@@ -8,7 +8,7 @@ Complete this file before delivering the Nutanix Terraform and Vault training.
 
 You need only one container runtime:
 
-- Option A: Podmana
+- Option A: Podman
 - Option B: Docker
 
 Do not run both at the same time. Both may try to use port `8200`.
