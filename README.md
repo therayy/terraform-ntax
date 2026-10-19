@@ -8,10 +8,9 @@ prerequisites, then open the workshop for the day you are attending.
 ## Start here
 
 1. Complete the [prerequisites and readiness checks](./pre-reqs.md).
-2. Use the [presenter script](./presenter-script.md) during the live sessions.
-3. Open [Workshop 1: Terraform Foundations and Vault Enterprise Codification](./workshop-1.md).
-4. Open [Workshop 2: Import, Moved Blocks, Workspaces, and State](./workshop-2.md).
-5. Open [Workshop 3: GitHub, Jenkins, HCP Terraform, Security, and Drift](./workshop-3.md).
+2. Open [Workshop 1: Terraform Foundations and Vault Enterprise Codification](./workshop-1.md).
+3. Open [Workshop 2: Import, Moved Blocks, Workspaces, and State](./workshop-2.md).
+4. Open [Workshop 3: GitHub, Jenkins, HCP Terraform, Security, and Drift](./workshop-3.md).
 
 The presenter script contains the short words to say, actions to perform,
 expected results, questions, transitions, safety stops, and troubleshooting.
