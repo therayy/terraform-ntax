@@ -8,5 +8,4 @@ module "team_config" {
   for_each = local.teams
 
   team_name = each.key
-  enable_kv = try(each.value.enable_kv, true)
 }
