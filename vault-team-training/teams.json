@@ -1,0 +1,7 @@
+{
+  "teams": {
+    "payments": {
+      "enable_kv": true
+    }
+  }
+}
