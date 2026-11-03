@@ -319,8 +319,11 @@ Enterprise example:
 
 ```hcl
 data "vault_namespaces" "existing" {
-  namespace = ""
   recursive = true
+}
+
+output "existing_namespaces" {
+  value = data.vault_namespaces.existing.paths_fq
 }
 ```
 
