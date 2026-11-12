@@ -531,33 +531,6 @@ git status
 | Health/Drift option unavailable | Confirm the HCP plan, successful first apply, Agent execution, and workspace permissions. |
 | A run partially fails | Review the error, actual Vault resources, and HCP state. Fix and re-plan. Never assume a failed apply rolled everything back. |
 
-## Useful teaching points (short English)
-
-- **GitHub:** Where we review changes.
-- **Jenkins:** Checks the code; it does not deploy Vault.
-- **Terraform plan:** Shows what will change before approval.
-- **HCP Terraform:** Runs Terraform and keeps state and history.
-- **Agent:** Runs inside our private network and connects to Vault.
-- **OIDC:** Gives each run short-lived Vault access. No hard-coded token.
-- **Policy:** Defines what a run is allowed to do.
-- **Drift:** Finds differences between Git and the live Vault setup.
-- **Recovery:** Apply the approved Terraform configuration to restore the resource.
-
-## Workshop checklist
-
-- [ ] New folder copied to `terraform-ntax` and merged to `main`.
-- [ ] New Vault JWT auth path, policy, and role created.
-- [ ] New HCP project, Agent pool, and workspace created.
-- [ ] Initial apply created `blueprint-app-kv`.
-- [ ] Jenkins stages all passed.
-- [ ] PR showed a speculative plan.
-- [ ] Final run applied the approved change.
-- [ ] Manual drift was detected and repaired.
-
-## Optional discussion
-
-Explain how platform owners manage approved module versions, policy sets, RBAC, and Agent patterns, while application teams own their code and PRs. If available, open HCP Terraform Explorer to show workspace health. Infragraph is optional and requires a configured, supported account; it does not replace state, security scans, or drift detection. Do not create a second resource in another workspace pointing to the same Vault mount.
-
 ## Official references
 
 - [HCP Terraform Vault dynamic provider credentials](https://developer.hashicorp.com/terraform/cloud-docs/dynamic-provider-credentials/vault-configuration)
