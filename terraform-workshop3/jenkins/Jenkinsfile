@@ -1,0 +1,34 @@
+pipeline {
+  agent any
+
+  options {
+    skipDefaultCheckout(false)
+    timestamps()
+  }
+
+  stages {
+    stage('Format') {
+      steps {
+        sh 'terraform fmt -check -recursive workshop-3-replica/vault-configuration'
+      }
+    }
+
+    stage('Initialize without state') {
+      steps {
+        sh 'terraform -chdir=workshop-3-replica/vault-configuration init -backend=false -input=false'
+      }
+    }
+
+    stage('Validate') {
+      steps {
+        sh 'terraform -chdir=workshop-3-replica/vault-configuration validate'
+      }
+    }
+
+    stage('Security scan') {
+      steps {
+        sh 'trivy config --exit-code 1 --severity HIGH,CRITICAL workshop-3-replica/vault-configuration'
+      }
+    }
+  }
+}
