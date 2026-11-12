@@ -1,34 +1,64 @@
 pipeline {
   agent any
 
-  options {
-    skipDefaultCheckout(false)
-    timestamps()
+  environment {
+    PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
+    TF_WORKING_DIR = "training-evidence/workshop-3/vault-configuration"
   }
 
   stages {
-    stage('Format') {
+    stage('Verify tools') {
       steps {
-        sh 'terraform fmt -check -recursive workshop-3-replica/vault-configuration'
+        sh '''
+          set -eu
+          git --version
+          terraform version
+          trivy --version
+        '''
       }
     }
 
-    stage('Initialize without state') {
+    stage('Terraform format') {
       steps {
-        sh 'terraform -chdir=workshop-3-replica/vault-configuration init -backend=false -input=false'
+        sh 'terraform fmt -check -recursive'
       }
     }
 
-    stage('Validate') {
+    stage('Terraform validate') {
       steps {
-        sh 'terraform -chdir=workshop-3-replica/vault-configuration validate'
+        sh '''
+          set -eu
+
+          terraform \
+            -chdir="$TF_WORKING_DIR" \
+            init -backend=false -input=false
+
+          terraform \
+            -chdir="$TF_WORKING_DIR" \
+            validate
+        '''
       }
     }
 
     stage('Security scan') {
       steps {
-        sh 'trivy config --exit-code 1 --severity HIGH,CRITICAL workshop-3-replica/vault-configuration'
+        sh '''
+          trivy config \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            .
+        '''
       }
+    }
+  }
+
+  post {
+    success {
+      echo 'Validation and security checks passed.'
+    }
+
+    failure {
+      echo 'A Jenkins validation or security check failed.'
     }
   }
 }
