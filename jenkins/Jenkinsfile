@@ -3,6 +3,7 @@ pipeline {
 
   environment {
     PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
+    TF_WORKING_DIR = "training-evidence/workshop-3/vault-configuration"
   }
 
   stages {
@@ -26,12 +27,14 @@ pipeline {
     stage('Terraform validate') {
       steps {
         sh '''
-          terraform \
-            -chdir=examples/workshop-3/vault-configuration \
-            init -backend=false
+          set -eu
 
           terraform \
-            -chdir=examples/workshop-3/vault-configuration \
+            -chdir="$TF_WORKING_DIR" \
+            init -backend=false -input=false
+
+          terraform \
+            -chdir="$TF_WORKING_DIR" \
             validate
         '''
       }
