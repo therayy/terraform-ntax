@@ -39,6 +39,37 @@ technical reference. Do not use older web-interface steps during this workshop.
 > and run-task integration before the workshop. We configure and inspect them
 > through Terraform providers and APIs.
 
+flowchart TD
+    A["Change Terraform code"] --> B["Run local CLI checks"]
+    B --> C{"Checks pass?"}
+
+    C -->|No| D["Fix the code"]
+    D --> B
+
+    C -->|Yes| E["Push branch with Git"]
+    E --> F["Create pull request with GitHub CLI"]
+    F --> G["Jenkins validation and security scans"]
+    G --> H["HCP Terraform speculative plan"]
+
+    H --> I{"Plan and checks pass?"}
+    I -->|No| D
+    I -->|Yes| J["Review and merge pull request"]
+
+    J --> K["HCP Terraform final plan"]
+    K --> L["Policy checks and run tasks"]
+    L --> M{"Apply approved?"}
+
+    M -->|No| N["Stop and correct the change"]
+    N --> D
+
+    M -->|Yes| O["Apply through HCP Terraform API"]
+    O --> P["Verify Vault with Vault CLI"]
+    P --> Q["Run drift assessment"]
+    Q --> R{"Drift detected?"}
+
+    R -->|No| S["Deployment complete"]
+    R -->|Yes| T["Create recovery pull request"]
+    T --> B****
 Required commands:
 
 ```bash
