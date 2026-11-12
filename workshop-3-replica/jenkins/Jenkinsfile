@@ -3,7 +3,7 @@ pipeline {
 
   environment {
     PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
-    TF_WORKING_DIR = "training-evidence/workshop-3/vault-configuration"
+    TF_WORKING_DIR = "workshop-3-replica/vault-configuration"
   }
 
   stages {
