@@ -1,0 +1,61 @@
+pipeline {
+  agent any
+
+  environment {
+    PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
+  }
+
+  stages {
+    stage('Verify tools') {
+      steps {
+        sh '''
+          set -eu
+          git --version
+          terraform version
+          trivy --version
+        '''
+      }
+    }
+
+    stage('Terraform format') {
+      steps {
+        sh 'terraform fmt -check -recursive'
+      }
+    }
+
+    stage('Terraform validate') {
+      steps {
+        sh '''
+          terraform \
+            -chdir=examples/workshop-3/vault-configuration \
+            init -backend=false
+
+          terraform \
+            -chdir=examples/workshop-3/vault-configuration \
+            validate
+        '''
+      }
+    }
+
+    stage('Security scan') {
+      steps {
+        sh '''
+          trivy config \
+            --exit-code 1 \
+            --severity HIGH,CRITICAL \
+            .
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Validation and security checks passed.'
+    }
+
+    failure {
+      echo 'A Jenkins validation or security check failed.'
+    }
+  }
+}
