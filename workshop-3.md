@@ -4,8 +4,10 @@
 
 [Back to the workshop landing page](./README.md)
 
-**Live delivery:** Use this file as the command-line presenter script and
-technical reference. Do not use older web-interface steps during this workshop.
+**Live delivery:** Use this file as the UI-guided presenter script and
+technical reference. Use the Jenkins and HCP Terraform interfaces for setup,
+review, approval, state, health, and drift. Use the terminal for code changes,
+local validation, Git, and Vault verification.
 
 ## Workshop 3 timeline
 
@@ -27,7 +29,7 @@ technical reference. Do not use older web-interface steps during this workshop.
 > We will also discuss how a central platform team can provide governance
 > without owning every other team's Terraform code.
 
-## Workshop 3 command-line workflow
+## Workshop 3 delivery workflow
 
 ```mermaid
 flowchart TD
@@ -38,9 +40,9 @@ flowchart TD
     D --> B
 
     C -->|Yes| E["Push branch with Git"]
-    E --> F["Create pull request with GitHub CLI"]
-    F --> G["Jenkins validation and security scans"]
-    G --> H["HCP Terraform speculative plan"]
+    E --> F["Create pull request in GitHub"]
+    F --> G["Review Jenkins validation and scans"]
+    G --> H["Review HCP Terraform speculative plan"]
 
     H --> I{"Plan and checks pass?"}
     I -->|No| D
@@ -53,9 +55,9 @@ flowchart TD
     M -->|No| N["Stop and correct the change"]
     N --> D
 
-    M -->|Yes| O["Apply through HCP Terraform API"]
+    M -->|Yes| O["Confirm and apply in HCP Terraform UI"]
     O --> P["Verify Vault with Vault CLI"]
-    P --> Q["Run drift assessment"]
+    P --> Q["Start health assessment in HCP Terraform UI"]
     Q --> R{"Drift detected?"}
 
     R -->|No| S["Deployment complete"]
@@ -145,83 +147,60 @@ terraform-ntax/
 > Policies and Jenkins configuration have their own top-level directories so
 > they can be reviewed and maintained separately.
 
-## Command-line-only delivery requirements
+## UI-guided delivery requirements
 
 ### Notes!
 
-> This workshop is delivered from a terminal. We do not use the GitHub,
-> Jenkins, HCP Terraform, Vault, or HCP web interfaces.
+> We use the UI when it makes the workflow easier to understand.
 >
-> The customer must provide the existing GitHub App or VCS connection, Agent
-> pool, HCP Terraform organization, Vault OIDC trust configuration, policies,
-> and run-task integration before the workshop. We configure and inspect them
-> through Terraform providers and APIs.
+> Jenkins shows validation and scan results. HCP Terraform shows workspaces,
+> plans, policy results, approvals, state, and drift.
+>
+> We still use the terminal for editing Terraform, local checks, Git commands,
+> and Vault CLI verification.
 
+### Required access
 
-Required commands:
+- GitHub repository access
+- Jenkins administrator or job-creation access
+- HCP Terraform access to the `nutx` organization
+- Permission to create a project and workspace
+- An existing GitHub App connection in HCP Terraform
+- An approved HCP Terraform Agent pool
+- Vault OIDC trust, roles, policies, namespace, and CA trust
+- A disposable development Vault environment
+
+### Required local commands
 
 ```bash
 terraform version
 vault version
 git --version
-gh --version
-curl --version
-jq --version
 trivy --version
 ```
 
-Set the non-secret identifiers:
+Check the local Vault connection:
 
 ```bash
-export TFE_ADDRESS="https://app.terraform.io"
-export TFE_API="${TFE_ADDRESS%/}/api/v2"
-export TFE_HOSTNAME="app.terraform.io"
-export TFE_ORGANIZATION="nutanix"
-export TFE_WORKSPACE="vault-team-pilot-dev"
-export GH_REPO="NUTANIX_ORG/vault-platform"
-export JENKINS_URL="https://jenkins.example.com"
-export JENKINS_JOB="vault-platform"
-export JENKINS_USER="trainer@example.com"
 export VAULT_ADDR="https://vault.example.com:8200"
 export VAULT_CACERT="/path/to/vault-ca.pem"
 export VAULT_NAMESPACE="nutanix"
-```
 
-Read tokens without echoing them and keep them out of Git:
-
-```bash
-read -r -s -p "HCP Terraform token: " TFE_TOKEN
-printf '\n'
-export TFE_TOKEN
-export TF_TOKEN_app_terraform_io="$TFE_TOKEN"
-
-read -r -s -p "GitHub token: " GH_TOKEN
-printf '\n'
-export GH_TOKEN
-
-read -r -s -p "Vault demonstration token: " VAULT_TOKEN
+read -r -s -p "Temporary Vault demonstration token: " VAULT_TOKEN
 printf '\n'
 export VAULT_TOKEN
-```
-
-Validate access from the terminal:
-
-```bash
-gh auth status
-
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/account/details" | jq '{username: .data.attributes.username}'
 
 vault status
 ```
 
 ### Safety note
 
-> Do not paste tokens into commands, Terraform files, shell history, logs, or
-> Git. Use short-lived tokens where possible. The HCP Terraform run itself uses
-> Vault OIDC dynamic credentials instead of `VAULT_TOKEN`.
+> Do not put tokens in Git, Terraform files, screenshots, Jenkins logs, or
+> normal HCP Terraform variables.
+>
+> The HCP Terraform run uses Vault OIDC dynamic credentials. The temporary
+> `VAULT_TOKEN` is only for the controlled trainer verification and drift
+> demonstration.
 
 ## Part 1: Definition
 
@@ -306,34 +285,54 @@ vault status
 ### In terminal
 
 ```text
-vault-platform/
-|-- modules/
-|   `-- team-config/
-|-- live/
-|   |-- dev/
-|   |   |-- main.tf
-|   |   `-- teams.json
-|   `-- prod/
-|       |-- main.tf
-|       `-- teams.json
-`-- Jenkinsfile
+terraform-ntax/
+|-- workshop-3.md
+|-- examples/
+|   `-- workshop-3/
+|       |-- bootstrap/
+|       `-- vault-configuration/
+|           |-- main.tf
+|           |-- variables.tf
+|           `-- outputs.tf
+|-- jenkins/
+|   `-- Jenkinsfile
+|-- policies/
+|   |-- sentinel/
+|   `-- vault/
+`-- modules/
+    `-- vault-team/
 ```
 
 ### Notes!
 
-> The `modules` folder contains reusable code.
+> Workshop-specific configuration stays under `examples/workshop-3`.
 >
-> The development folder contains development configuration. The production
-> folder contains production configuration.
+> The reusable Vault module stays under `modules/vault-team`.
 >
-> Both environments can use the same approved module version. They still have
-> separate inputs, workspaces, state, access, and approvals.
+> Jenkins reads `jenkins/Jenkinsfile`. HCP Terraform runs from
+> `examples/workshop-3/vault-configuration`.
 >
-> A team can exist only in development, only in production, or in both.
+> Development and production must use separate workspaces, state, access, and
+> approvals.
 
-## Step 2: Show the Jenkins checks
+## Step 2: Create the Jenkins validation pipeline
 
-### In terminal
+### In Jenkins
+
+1. From the Jenkins dashboard, select **New Item** or **Create a job**.
+2. Enter `vault-platform`.
+3. Select **Multibranch Pipeline**, then select **OK**.
+4. Under **Branch Sources**, add **GitHub** or **Git**.
+5. Select the approved GitHub credential.
+6. Enter the repository containing `terraform-ntax`.
+7. Configure branch and pull-request discovery.
+8. Under **Build Configuration**, select **by Jenkinsfile**.
+9. Set **Script Path** to `jenkins/Jenkinsfile`.
+10. Save the job.
+11. Select **Scan Multibranch Pipeline Now**.
+12. Open a branch build, then select **Console Output**.
+
+### In the repository
 
 ```groovy
 pipeline {
@@ -348,8 +347,8 @@ pipeline {
 
     stage('Terraform validate') {
       steps {
-        sh 'terraform -chdir=live/dev init -backend=false'
-        sh 'terraform -chdir=live/dev validate'
+        sh 'terraform -chdir=examples/workshop-3/vault-configuration init -backend=false'
+        sh 'terraform -chdir=examples/workshop-3/vault-configuration validate'
       }
     }
 
@@ -364,27 +363,18 @@ pipeline {
 
 ### Notes!
 
-> The first stage checks Terraform formatting.
+> The Jenkins agent must already have Git, Terraform, and Trivy installed.
 >
-> The second stage initializes Terraform without using the remote backend and
-> validates the development configuration.
+> Jenkins checks formatting, validates the Terraform configuration, and scans
+> the code.
 >
-> The third stage scans the Terraform code with Trivy. Nutanix can replace this
-> command with Checkov or Cycode after choosing the standard scanner.
+> Jenkins does not apply the Vault configuration. HCP Terraform owns the
+> authoritative plan and apply.
 >
-> Harbor mainly stores and scans container images. Harbor using Trivy does not
-> automatically mean the Terraform pull request is scanned. The IaC scanner
-> must be added to the Jenkins pipeline.
+> Store the pipeline in Git. Do not paste a long production pipeline directly
+> into the Jenkins job configuration.
 
-### In terminal
-
-Show the Checkov alternative:
-
-```bash
-checkov -d . --framework terraform --compact
-```
-
-## Step 3: Create the development workspace from the terminal
+## Step 3: Create the development workspace in HCP Terraform
 
 ### HCP Terraform project, workspace, and state hierarchy
 
@@ -400,610 +390,212 @@ flowchart TD
     E --> E1["Production state"]
 ```
 
+### In HCP Terraform
+
+Create the project:
+
+1. Select the `nutx` organization.
+2. Select **Projects**.
+3. Create a project named `Vault Development`.
+
+Create the workspace:
+
+1. Select **Workspaces**, then **New Workspace**.
+2. Select **Version control workflow**.
+3. Select the approved GitHub App connection.
+4. Select the `terraform-ntax` repository.
+5. Select the `Vault Development` project.
+6. Name the workspace `vault-team-pilot-dev`.
+7. Open **Advanced options**.
+8. Set the branch to `main`.
+9. Set the Terraform working directory to
+   `examples/workshop-3/vault-configuration`.
+10. Configure automatic run triggering for:
+    - `examples/workshop-3/vault-configuration/**`
+    - `modules/**`
+11. Keep **Auto apply** disabled.
+12. Create the workspace.
+
+Configure execution:
+
+1. Open the workspace.
+2. Select **Settings**, then **General**.
+3. Set **Execution Mode** to **Agent**.
+4. Select the approved Agent pool.
+5. Save the settings.
+
 ### Notes!
 
-> The organization is the top-level boundary.
+> We use the Version control workflow because the repository is the source of
+> truth. Pull requests receive speculative plans and merged changes trigger
+> normal workspace runs.
 >
-> A project groups related workspaces and helps control access. The project
-> does not contain one shared state file.
+> The workspace owns only the development pilot and its state.
 >
-> Each workspace has its own runs, variables, permissions, settings, and
-> state.
+> The project groups related workspaces and access. It does not contain one
+> shared state file.
 >
 > One Vault resource must have only one owning workspace and one state file.
-
-### In terminal
-
-Use a separate bootstrap configuration with the `tfe` provider. The GitHub App
-installation, Agent pool, team, policies, and run task must already exist.
-
-```hcl
-terraform {
-  required_version = ">= 1.7.0"
-
-  required_providers {
-    tfe = {
-      source  = "hashicorp/tfe"
-      version = "~> 0.83.0"
-    }
-  }
-}
-
-provider "tfe" {
-  hostname     = var.hostname
-  organization = var.organization
-}
-
-variable "hostname" {
-  type    = string
-  default = "app.terraform.io"
-}
-
-variable "organization" {
-  type = string
-}
-
-variable "github_owner" {
-  type = string
-}
-
-variable "repository" {
-  type = string
-}
-
-variable "agent_pool_name" {
-  type = string
-}
-
-variable "development_team_name" {
-  type = string
-}
-
-variable "terraform_version" {
-  type = string
-}
-
-variable "vault_address" {
-  type = string
-}
-
-variable "vault_namespace" {
-  type = string
-}
-
-variable "vault_run_role" {
-  type = string
-}
-
-variable "run_task_id" {
-  type    = string
-  default = null
-}
-
-variable "policy_ids" {
-  type    = set(string)
-  default = []
-}
-
-variable "enable_health_assessments" {
-  type    = bool
-  default = false
-}
-
-data "tfe_github_app_installation" "github" {
-  name = var.github_owner
-}
-
-data "tfe_agent_pool" "approved" {
-  name         = var.agent_pool_name
-  organization = var.organization
-}
-
-data "tfe_team" "development" {
-  name         = var.development_team_name
-  organization = var.organization
-}
-
-resource "tfe_project" "vault_development" {
-  name         = "Vault Development"
-  organization = var.organization
-}
-
-resource "tfe_workspace" "pilot" {
-  name                       = "vault-team-pilot-dev"
-  organization               = var.organization
-  project_id                 = tfe_project.vault_development.id
-  working_directory          = "live/dev"
-  terraform_version          = var.terraform_version
-  auto_apply                 = false
-  allow_destroy_plan         = false
-  assessments_enabled        = var.enable_health_assessments
-  file_triggers_enabled      = true
-  trigger_patterns           = ["live/dev/**", "modules/**"]
-
-  vcs_repo {
-    identifier                 = "${var.github_owner}/${var.repository}"
-    branch                     = "main"
-    github_app_installation_id = data.tfe_github_app_installation.github.id
-  }
-}
-
-resource "tfe_workspace_settings" "pilot" {
-  workspace_id   = tfe_workspace.pilot.id
-  execution_mode = "agent"
-  agent_pool_id  = data.tfe_agent_pool.approved.id
-}
-
-resource "tfe_team_access" "development" {
-  workspace_id = tfe_workspace.pilot.id
-  team_id      = data.tfe_team.development.id
-  access       = "write"
-}
-
-locals {
-  vault_environment = {
-    TFC_VAULT_PROVIDER_AUTH = "true"
-    TFC_VAULT_ADDR          = var.vault_address
-    TFC_VAULT_RUN_ROLE      = var.vault_run_role
-    TFC_VAULT_NAMESPACE     = var.vault_namespace
-  }
-}
-
-resource "tfe_variable" "vault_dynamic_credentials" {
-  for_each = local.vault_environment
-
-  workspace_id = tfe_workspace.pilot.id
-  category     = "env"
-  key          = each.key
-  value        = each.value
-  sensitive    = false
-}
-
-resource "tfe_workspace_run_task" "security" {
-  count = var.run_task_id == null ? 0 : 1
-
-  workspace_id      = tfe_workspace.pilot.id
-  task_id           = var.run_task_id
-  enforcement_level = "advisory"
-  stages            = ["post_plan"]
-}
-
-resource "tfe_policy_set" "vault_guardrails" {
-  count = length(var.policy_ids) == 0 ? 0 : 1
-
-  name          = "vault-pilot-guardrails"
-  organization  = var.organization
-  kind          = "sentinel"
-  policy_ids    = var.policy_ids
-  workspace_ids = [tfe_workspace.pilot.id]
-}
-
-output "workspace_id" {
-  value = tfe_workspace.pilot.id
-}
-```
-
-Supply the environment-specific values and apply the bootstrap configuration:
-
-```bash
-export TF_VAR_hostname="$TFE_HOSTNAME"
-export TF_VAR_organization="$TFE_ORGANIZATION"
-export TF_VAR_github_owner="NUTANIX_ORG"
-export TF_VAR_repository="vault-platform"
-export TF_VAR_agent_pool_name="APPROVED_AGENT_POOL"
-export TF_VAR_development_team_name="Vault Development Team"
-export TF_VAR_terraform_version="$(terraform version -json | jq -r .terraform_version)"
-export TF_VAR_vault_address="https://vault.example.com:8200"
-export TF_VAR_vault_namespace="nutanix"
-export TF_VAR_vault_run_role="vault-team-pilot"
-
-terraform -chdir=bootstrap/hcp init
-terraform -chdir=bootstrap/hcp fmt -check
-terraform -chdir=bootstrap/hcp validate
-terraform -chdir=bootstrap/hcp plan -out=bootstrap.tfplan
-terraform -chdir=bootstrap/hcp apply bootstrap.tfplan
-```
-
-Confirm the settings through the API:
-
-```bash
-WORKSPACE_ID="$(terraform -chdir=bootstrap/hcp output -raw workspace_id)"
-export WORKSPACE_ID
-
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/workspaces/$WORKSPACE_ID" |
-  jq '.data | {
-    id,
-    name: .attributes.name,
-    auto_apply: .attributes["auto-apply"],
-    assessments: .attributes["assessments-enabled"],
-    working_directory: .attributes["working-directory"],
-    execution_mode: .attributes["execution-mode"]
-  }'
-```
-
-### Notes!
-
-> This workspace manages only the development pilot.
 >
-> The GitHub connection allows pull-request plans and runs after merge.
+> Auto apply stays disabled so an authorized person reviews the final plan
+> before applying it.
 >
-> Auto-apply is disabled because a person must review and approve the final
-> plan.
->
-> The Agent runs Terraform from the private network and reaches the private
-> Vault API.
->
-> Health assessments remain disabled until this workspace completes its first
-> successful apply. We enable them later by setting
-> `TF_VAR_enable_health_assessments=true` and applying the bootstrap
-> configuration again.
+> After the pilot is proven, the platform team can codify this workspace setup
+> with the HCP Terraform provider.
 
-## Step 4: Show Vault dynamic credential settings
+## Step 4: Configure Vault dynamic credentials
 
-### In terminal
+### In HCP Terraform
 
-```text
-TFC_VAULT_PROVIDER_AUTH=true
-TFC_VAULT_ADDR=https://vault.example.com:8200
-TFC_VAULT_RUN_ROLE=vault-team-pilot
-TFC_VAULT_NAMESPACE=nutanix
-```
+Open `vault-team-pilot-dev`, then open **Variables**.
 
-For separate plan and apply roles:
+Add these environment variables:
 
-```text
-TFC_VAULT_PLAN_ROLE=vault-team-pilot-plan
-TFC_VAULT_APPLY_ROLE=vault-team-pilot-apply
-```
+| Key | Example value | Sensitive |
+| --- | --- | --- |
+| `TFC_VAULT_PROVIDER_AUTH` | `true` | No |
+| `TFC_VAULT_ADDR` | `https://vault.example.com:8200` | No |
+| `TFC_VAULT_RUN_ROLE` | `vault-team-pilot` | No |
+| `TFC_VAULT_NAMESPACE` | `nutanix` | No |
 
-The provider configuration stays simple:
+If plan and apply require different Vault permissions, use these instead of
+`TFC_VAULT_RUN_ROLE`:
+
+| Key | Example value |
+| --- | --- |
+| `TFC_VAULT_PLAN_ROLE` | `vault-team-pilot-plan` |
+| `TFC_VAULT_APPLY_ROLE` | `vault-team-pilot-apply` |
+
+Do not add `VAULT_TOKEN` to the workspace.
+
+### In the Terraform configuration
 
 ```hcl
 provider "vault" {}
 ```
 
-Confirm that the workspace variables exist without printing their values:
-
-```bash
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/workspaces/$WORKSPACE_ID/vars" |
-  jq '[.data[] |
-    select(.attributes.key | startswith("TFC_VAULT_")) |
-    {
-      key: .attributes.key,
-      category: .attributes.category,
-      sensitive: .attributes.sensitive
-    }
-  ]'
-```
-
 ### Notes!
 
-> HCP Terraform uses these settings to request short-lived Vault credentials.
+> The Agent provides private network access to Vault.
+>
+> OIDC provides short-lived Vault authentication.
+>
+> These are different responsibilities. The Agent is not a Vault credential.
 >
 > A Vault specialist must configure the trusted OIDC issuer, audience, bound
-> claims, Vault roles, Vault policies, token lifetime, namespace, and CA trust.
+> claims, Vault roles, policies, token lifetime, namespace, and CA trust.
 >
-> Plan and apply can use different roles when different permissions are needed.
->
-> We do not store a permanent Vault token in Git or in a normal workspace
-> variable.
+> The Terraform configuration does not contain a permanent Vault token.
 
 ## Step 5: Follow one GitHub change
 
 ### Notes!
 
-> I will now follow one development change through the complete workflow.
+> We will follow one safe development change through GitHub, Jenkins, HCP
+> Terraform, and Vault.
+
+### Establish the workspace baseline
+
+A new VCS workspace needs one successful initial run before it processes later
+VCS webhooks.
+
+1. Open `vault-team-pilot-dev` in HCP Terraform.
+2. Select **New run**.
+3. Select **Plan and apply**.
+4. Review the complete plan.
+5. Confirm that no unexpected replacement or destruction is present.
+6. Select **Confirm & Apply**.
+7. Wait for the apply to finish successfully.
 
 ### In terminal
 
-Create a branch and change one non-sensitive value. Adjust the `jq` selector to
-match the actual `teams.json` schema.
+Create a branch and edit one non-sensitive description in the development
+configuration:
 
 ```bash
-BRANCH="workshop3-cli-change"
+BRANCH="workshop3-ui-change"
 git switch -c "$BRANCH"
 
-jq '(.teams[] | select(.name == "pilot") | .description) =
-    "Updated through the reviewed CLI workflow"' \
-  live/dev/teams.json > /tmp/teams.json
-mv /tmp/teams.json live/dev/teams.json
+${EDITOR:-vi} examples/workshop-3/vault-configuration/main.tf
 
 terraform fmt -check -recursive
-terraform -chdir=live/dev init -backend=false
-terraform -chdir=live/dev validate
+terraform -chdir=examples/workshop-3/vault-configuration init -backend=false
+terraform -chdir=examples/workshop-3/vault-configuration validate
 trivy config --exit-code 1 --severity HIGH,CRITICAL .
 
 git diff --check
-git diff -- live/dev/teams.json
-git add live/dev/teams.json
-git commit -m "Update pilot team configuration"
+git diff
+git add examples/workshop-3/vault-configuration/main.tf
+git commit -m "Update pilot Vault configuration"
 git push --set-upstream origin "$BRANCH"
 ```
 
-Create and inspect the pull request with GitHub CLI:
+### In GitHub
+
+1. Open the `terraform-ntax` repository.
+2. Create a pull request from `workshop3-ui-change` into `main`.
+3. Review the changed Terraform code.
+4. Wait for the Jenkins and HCP Terraform checks.
+5. Open the Jenkins check and confirm all stages passed.
+6. Open the HCP Terraform speculative plan.
+7. Confirm that the speculative plan contains only the expected change.
+8. Obtain peer approval.
+9. Merge the pull request.
+
+### In Jenkins
+
+1. Open the `vault-platform` multibranch pipeline.
+2. Open the pull-request branch build.
+3. Review **Stage View** or **Console Output**.
+4. Confirm formatting, validation, and security scanning passed.
+
+### In HCP Terraform before merge
+
+1. Open the speculative run connected to the pull request.
+2. Review the plan summary and full plan.
+3. Review policy evaluations and run-task results.
+4. Confirm that this run is plan-only and cannot be applied.
+
+### In HCP Terraform after merge
+
+1. Open `vault-team-pilot-dev`.
+2. Open the new run triggered by the merge to `main`.
+3. Review the final plan again.
+4. Review policy evaluations and run-task results.
+5. Confirm that no unexpected deletion or replacement exists.
+6. Select **Confirm & Apply**.
+7. Wait for the apply to complete.
+8. Review the run history and current state summary.
+
+### Verify Vault
 
 ```bash
-PR_URL="$(gh pr create \
-  --repo "$GH_REPO" \
-  --base main \
-  --head "$BRANCH" \
-  --title "Update pilot team configuration" \
-  --body "Workshop 3 command-line workflow demonstration")"
-
-gh pr view "$PR_URL" --json number,title,state,headRefName,baseRefName
-gh pr diff "$PR_URL"
-gh pr checks "$PR_URL" --watch --fail-fast
+vault secrets list -namespace="$VAULT_NAMESPACE"
 ```
 
-If Jenkins does not report its result as a GitHub check, query Jenkins directly:
+After the first successful apply, enable health assessments:
 
-```bash
-read -r -s -p "Jenkins API token: " JENKINS_API_TOKEN
-printf '\n'
-export JENKINS_API_TOKEN
-
-curl --fail --silent --show-error \
-  --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
-  "$JENKINS_URL/job/$JENKINS_JOB/lastBuild/api/json" |
-  jq '{number, result, building, url}'
-```
-
-Get the workspace ID if it was not exported by the bootstrap step:
-
-```bash
-WORKSPACE_ID="${WORKSPACE_ID:-$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/organizations/$TFE_ORGANIZATION/workspaces/$TFE_WORKSPACE" |
-    jq -r '.data.id'
-)}"
-export WORKSPACE_ID
-```
-
-Retrieve the latest speculative pull-request run. The runs endpoint excludes
-plan-only runs unless they are explicitly requested.
-
-```bash
-SPECULATIVE_RUN_ID="$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/workspaces/$WORKSPACE_ID/runs?filter%5Boperation%5D=plan_only&page%5Bsize%5D=20" |
-    jq -r '.data[0].id'
-)"
-
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/runs/$SPECULATIVE_RUN_ID" |
-  jq '.data | {
-    id,
-    status: .attributes.status,
-    operation: .attributes.operation,
-    message: .attributes.message,
-    created_at: .attributes["created-at"]
-  }'
-```
-
-Wait for the speculative plan to finish:
-
-```bash
-while :; do
-  RUN_STATUS="$(
-    curl --fail --silent --show-error \
-      --header "Authorization: Bearer $TFE_TOKEN" \
-      --header "Content-Type: application/vnd.api+json" \
-      "$TFE_API/runs/$SPECULATIVE_RUN_ID" |
-      jq -r '.data.attributes.status'
-  )"
-
-  printf 'Speculative run status: %s\n' "$RUN_STATUS"
-
-  case "$RUN_STATUS" in
-    planned_and_finished|policy_soft_failed|errored|canceled|discarded) break ;;
-  esac
-
-  sleep 10
-done
-```
-
-Print the speculative plan log in the terminal:
-
-```bash
-PLAN_ID="$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/runs/$SPECULATIVE_RUN_ID" |
-    jq -r '.data.relationships.plan.data.id'
-)"
-
-PLAN_LOG_URL="$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/plans/$PLAN_ID" |
-    jq -r '.data.attributes["log-read-url"]'
-)"
-
-curl --fail --silent --show-error --location "$PLAN_LOG_URL"
-unset PLAN_LOG_URL
-```
-
-Merge only after the GitHub checks and speculative plan pass:
-
-```bash
-gh pr merge "$PR_URL" --squash --delete-branch
-```
-
-Wait for HCP Terraform to create the post-merge run:
-
-```bash
-while :; do
-  RUN_ID="$(
-    curl --fail --silent --show-error \
-      --header "Authorization: Bearer $TFE_TOKEN" \
-      --header "Content-Type: application/vnd.api+json" \
-      "$TFE_API/workspaces/$WORKSPACE_ID" |
-      jq -r '.data.relationships["current-run"].data.id // empty'
-  )"
-
-  if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "$SPECULATIVE_RUN_ID" ]; then
-    break
-  fi
-
-  sleep 10
-done
-
-export RUN_ID
-printf 'Post-merge run: %s\n' "$RUN_ID"
-```
-
-Inspect the run, Terraform policy evaluations, and run-task stages:
-
-```bash
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/runs/$RUN_ID?include=plan,tf_policy_evaluations" |
-  jq '{
-    run: {
-      id: .data.id,
-      status: .data.attributes.status,
-      operation: .data.attributes.operation,
-      actions: .data.attributes.actions
-    },
-    policy_evaluations: [
-      .included[]? |
-      select(.type == "policy-evaluations") |
-      {id, status: .attributes.status}
-    ]
-  }'
-
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/runs/$RUN_ID/task-stages?include=task-results,policy-evaluations" |
-  jq '{
-    stages: [.data[] | {id, stage: .attributes.stage, status: .attributes.status}],
-    results: [.included[]? | {id, type, status: .attributes.status}]
-  }'
-```
-
-Print the final plan log using the same plan-log commands, replacing
-`SPECULATIVE_RUN_ID` with `RUN_ID`. Verify that the plan contains only the
-expected change.
-
-The authorized approver applies the run from the terminal. This requires a
-user or team token with apply permission. An organization token cannot apply a
-run.
-
-```bash
-curl --fail --silent --show-error \
-  --request POST \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  --data '{"comment":"Approved after CLI plan and policy review"}' \
-  "$TFE_API/runs/$RUN_ID/actions/apply"
-```
-
-Wait for the apply to finish and print its log:
-
-```bash
-while :; do
-  RUN_STATUS="$(
-    curl --fail --silent --show-error \
-      --header "Authorization: Bearer $TFE_TOKEN" \
-      --header "Content-Type: application/vnd.api+json" \
-      "$TFE_API/runs/$RUN_ID" |
-      jq -r '.data.attributes.status'
-  )"
-
-  printf 'Run status: %s\n' "$RUN_STATUS"
-
-  case "$RUN_STATUS" in
-    applied|planned_and_finished|errored|canceled|discarded) break ;;
-  esac
-
-  sleep 10
-done
-
-APPLY_ID="$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/runs/$RUN_ID" |
-    jq -r '.data.relationships.apply.data.id'
-)"
-
-APPLY_LOG_URL="$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/applies/$APPLY_ID" |
-    jq -r '.data.attributes["log-read-url"]'
-)"
-
-curl --fail --silent --show-error --location "$APPLY_LOG_URL"
-unset APPLY_LOG_URL
-```
-
-Inspect state metadata and run history without downloading the raw state file:
-
-```bash
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/workspaces/$WORKSPACE_ID/current-state-version" |
-  jq '.data | {
-    id,
-    serial: .attributes.serial,
-    created_at: .attributes["created-at"],
-    resources_processed: .attributes["resources-processed"]
-  }'
-
-curl --fail --silent --show-error \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/workspaces/$WORKSPACE_ID/runs?page%5Bsize%5D=10" |
-  jq '[.data[] | {
-    id,
-    status: .attributes.status,
-    operation: .attributes.operation,
-    created_at: .attributes["created-at"]
-  }]'
-```
-
-After the first successful apply, enable scheduled health assessments through
-the bootstrap configuration:
-
-```bash
-export TF_VAR_enable_health_assessments=true
-terraform -chdir=bootstrap/hcp plan -out=enable-health.tfplan
-terraform -chdir=bootstrap/hcp apply enable-health.tfplan
-```
+1. Open the workspace.
+2. Select **Settings**, then **Health**.
+3. Select **Enable**.
+4. Save the settings.
 
 ### Notes!
 
-> The pull request gives us code review. Jenkins gives us automated code checks.
-> The speculative plan gives us an infrastructure preview before merge.
+> GitHub provides code review.
 >
-> After merge, HCP Terraform creates the real workspace plan. Policies and run
-> tasks check the run. A person approves the apply.
+> Jenkins provides automated code checks.
 >
-> The Agent reaches Vault, and OIDC gives the run short-lived Vault access.
-> HCP Terraform then updates the state and saves the run history.
+> The speculative plan previews the infrastructure change before merge.
+>
+> The final HCP Terraform run performs policy checks, waits for approval,
+> executes through the Agent, and uses short-lived Vault credentials.
+>
+> HCP Terraform stores the updated state and run history.
 
 ## Step 6: Show the security layers
 
-### In terminal
+### Security control map
 
 | Control | What it checks |
 | --- | --- |
@@ -1030,25 +622,20 @@ terraform -chdir=bootstrap/hcp apply enable-health.tfplan
 >
 > A health assessment checks for drift after deployment.
 
-## Step 7: Show drift detection
+## Step 7: Demonstrate drift detection
 
 ### Notes!
 
-> I will make one controlled manual change in development Vault. This represents
-> a change made outside the approved Terraform workflow.
+> I will make one controlled change directly in development Vault. This
+> represents a change made outside the approved Terraform workflow.
 
 ### In terminal
 
-Set the demonstration mount path to a disposable development mount. Never run
-this against production:
+Use only a disposable development mount:
 
 ```bash
 export DRIFT_DEMO_MOUNT="team-kv"
-```
 
-Record the current description and introduce one controlled out-of-band change:
-
-```bash
 ORIGINAL_DESCRIPTION="$(
   vault secrets list \
     -namespace="$VAULT_NAMESPACE" \
@@ -1064,150 +651,49 @@ vault secrets tune \
   "$DRIFT_DEMO_MOUNT/"
 ```
 
-HCP Terraform currently exposes on-demand health-assessment triggering only in
-its web interface. Because this workshop is command-line only, create a
-non-auto-applied refresh-only run through the API for immediate drift detection:
+### In HCP Terraform
 
-```bash
-jq -n --arg workspace_id "$WORKSPACE_ID" '
-{
-  data: {
-    type: "runs",
-    attributes: {
-      message: "Workshop 3 CLI drift check",
-      operation: "refresh_only",
-      "auto-apply": false
-    },
-    relationships: {
-      workspace: {
-        data: {
-          type: "workspaces",
-          id: $workspace_id
-        }
-      }
-    }
-  }
-}' > /tmp/refresh-only-run.json
+1. Open `vault-team-pilot-dev`.
+2. Open **Health**.
+3. Select **Start health assessment**.
+4. Wait for the assessment to finish.
+5. Open **Drift** or **View details**.
+6. Show the resource and attribute that changed.
+7. Confirm that the assessment detected the change but did not modify Vault.
 
-DRIFT_RUN_ID="$(
-  curl --fail --silent --show-error \
-    --request POST \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    --data @/tmp/refresh-only-run.json \
-    "$TFE_API/runs" |
-    jq -r '.data.id'
-)"
+### Resolve the drift
 
-rm -f /tmp/refresh-only-run.json
-printf 'Refresh-only run: %s\n' "$DRIFT_RUN_ID"
-```
+Choose one response:
 
-Wait for the run to finish planning, then print its plan log using the plan-log
-commands from Step 5 with `DRIFT_RUN_ID`. Do not apply this refresh-only run.
-After reviewing the result, discard it:
+**Reject the manual change**
 
-```bash
-curl --fail --silent --show-error \
-  --request POST \
-  --header "Authorization: Bearer $TFE_TOKEN" \
-  --header "Content-Type: application/vnd.api+json" \
-  "$TFE_API/runs/$DRIFT_RUN_ID/actions/discard"
-```
+1. Select **New run**.
+2. Select **Plan and apply**.
+3. Confirm that the plan restores the Git-defined value.
+4. Select **Confirm & Apply**.
+5. Start another health assessment and confirm that the workspace is healthy.
 
-Scheduled HCP Terraform health assessments continue independently. Retrieve
-the latest scheduled result through the API when one exists:
+**Accept the manual change**
 
-```bash
-ASSESSMENT_ID="$(
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/workspaces/$WORKSPACE_ID" |
-    jq -r '.data.relationships["current-assessment-result"].data.id // empty'
-)"
-
-if [ -n "$ASSESSMENT_ID" ]; then
-  curl --fail --silent --show-error \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    "$TFE_API/assessment-results/$ASSESSMENT_ID" |
-    jq '.data | {
-      id,
-      drifted: .attributes.drifted,
-      succeeded: .attributes.succeeded,
-      created_at: .attributes["created-at"]
-    }'
-else
-  printf '%s\n' "No scheduled health-assessment result exists yet."
-fi
-```
-
-Reject the out-of-band change by queuing a normal reviewed run from the latest
-workspace configuration. This plan should restore the description defined in
-Git:
-
-```bash
-jq -n --arg workspace_id "$WORKSPACE_ID" '
-{
-  data: {
-    type: "runs",
-    attributes: {
-      message: "Restore Vault configuration after controlled drift test",
-      operation: "plan_and_apply",
-      "auto-apply": false
-    },
-    relationships: {
-      workspace: {
-        data: {
-          type: "workspaces",
-          id: $workspace_id
-        }
-      }
-    }
-  }
-}' > /tmp/recovery-run.json
-
-RECOVERY_RUN_ID="$(
-  curl --fail --silent --show-error \
-    --request POST \
-    --header "Authorization: Bearer $TFE_TOKEN" \
-    --header "Content-Type: application/vnd.api+json" \
-    --data @/tmp/recovery-run.json \
-    "$TFE_API/runs" |
-    jq -r '.data.id'
-)"
-
-rm -f /tmp/recovery-run.json
-printf 'Recovery run: %s\n' "$RECOVERY_RUN_ID"
-```
-
-Review its plan log and policy results with the Step 5 commands. Apply it only
-after confirming that it restores the expected description and makes no other
-changes.
+1. Update the Terraform configuration to match the approved value.
+2. Create a pull request.
+3. Pass Jenkins and the speculative plan.
+4. Merge the approved change.
+5. Apply the final HCP Terraform run.
 
 ### Notes!
 
-> HCP Terraform detected that the real Vault configuration no longer matches
-> the Terraform configuration.
+> Drift detection reports that the real Vault configuration no longer matches
+> the Terraform configuration. It does not automatically repair the change.
 >
-> We now have two valid choices.
+> We either restore the value defined in Git or update Git through the normal
+> review process.
 >
-> First, we can reject the manual change and apply Terraform to restore the
-> value from code.
->
-> Second, we can accept the manual change by updating Git, reviewing the plan,
-> and applying the reviewed configuration.
->
-> We do not hide unexplained drift by changing state manually.
->
-> For this live CLI demonstration, the refresh-only run provides immediate
-> evidence. The scheduled health assessment provides the ongoing HCP Terraform
-> control after the workshop.
+> We do not hide unexplained drift by editing Terraform state manually.
 
 ## Step 8: Show the shared governance model
 
-### In terminal
+### Responsibility map
 
 | Central platform team owns | Consumer team owns |
 | --- | --- |
@@ -1248,56 +734,41 @@ changes.
 >
 > We need both layers. HCP Terraform access does not replace Vault access.
 
-## Step 10: Show the private module registry path
+## Step 10: Publish the private module
 
 ### In terminal
 
-Validate and version the module repository:
+Validate, scan, commit, and tag the module:
 
 ```bash
 terraform fmt -check -recursive
-terraform -chdir=examples/basic init -backend=false
-terraform -chdir=examples/basic validate
-trivy config --exit-code 1 --severity HIGH,CRITICAL .
+terraform -chdir=modules/vault-team init -backend=false
+terraform -chdir=modules/vault-team validate
+trivy config --exit-code 1 --severity HIGH,CRITICAL modules/vault-team
 
 git status --short
-git tag -a v1.0.0 -m "Release team-config module v1.0.0"
+git tag -a v1.0.0 -m "Release vault-team module v1.0.0"
 git push origin v1.0.0
 ```
 
-Publish the existing GitHub repository to the HCP Terraform private registry
-through the `tfe` provider:
+### In HCP Terraform
+
+1. Select **Registry**.
+2. Select **Publish**, then **Module**.
+3. Select the approved GitHub VCS connection.
+4. Select the `terraform-ntax` repository.
+5. Select tag-based publishing.
+6. Set **Source Directory** to `modules/vault-team`.
+7. Leave the tag prefix empty when using tags such as `v1.0.0`.
+8. Select **Publish module**.
+9. Review the generated documentation, inputs, outputs, and available version.
+10. Copy the module usage example.
+
+Pin the module version in consuming code:
 
 ```hcl
-data "tfe_github_app_installation" "github" {
-  name = var.github_owner
-}
-
-resource "tfe_registry_module" "team_config" {
-  organization = var.organization
-
-  vcs_repo {
-    identifier                 = "${var.github_owner}/terraform-vault-team-config"
-    display_identifier         = "${var.github_owner}/terraform-vault-team-config"
-    github_app_installation_id = data.tfe_github_app_installation.github.id
-  }
-}
-```
-
-Apply the registry configuration from the terminal:
-
-```bash
-terraform -chdir=bootstrap/hcp fmt -check
-terraform -chdir=bootstrap/hcp validate
-terraform -chdir=bootstrap/hcp plan -out=publish-module.tfplan
-terraform -chdir=bootstrap/hcp apply publish-module.tfplan
-```
-
-Pin the published module version in consuming code:
-
-```hcl
-module "team_config" {
-  source  = "app.terraform.io/nutanix/team-config/vault"
+module "vault_team" {
+  source  = "app.terraform.io/nutx/vault-team/vault"
   version = "1.0.0"
 
   # Approved inputs
@@ -1306,42 +777,51 @@ module "team_config" {
 
 ### Notes!
 
-> After the module works in the pilot, we can publish it to the HCP Terraform
-> private registry.
->
-> The public Terraform Registry can be used by anyone. The private registry
-> gives Nutanix control over which internal modules are published and who can
-> use them.
+> The private registry gives Nutanix control over internal module publishing
+> and discovery.
 >
 > Private does not automatically mean secure. Every module still needs review,
-> testing, scanning, versioning, and maintenance.
+> tests, scanning, versioning, documentation, and maintenance.
 >
-> The module should have its own Git repository, documentation, examples, tests,
-> and security scans. A pull request reviews every module change.
->
-> We tag a version such as `v1.0.0` and publish it. Consumer teams pin an
-> approved module version. We publish a new version when the module changes.
->
-> We do not silently change a shared module and force every team to receive the
-> change without review.
+> Consumers pin an approved version. New module changes require a new reviewed
+> release.
 
-## Step 11: Introduce Infragraph
+## Step 11: Show Explorer and Infragraph
+
+### HCP Terraform Explorer
+
+1. Select **Explorer** from the HCP Terraform organization sidebar.
+2. Open **Workspaces**.
+3. Show **Drifted workspaces**.
+4. Show workspaces without a VCS connection.
+5. Show Terraform, provider, and module version visibility.
+6. Open `vault-team-pilot-dev` from the results.
+
+### Infragraph Graph Explorer
+
+Use this section only when Infragraph is already activated and connected.
+
+1. Open the HCP organization.
+2. Select **Graph explorer**.
+3. Select **Add resource type**.
+4. Choose an available HCP Terraform or infrastructure resource type.
+5. Add a relationship or filter.
+6. Run the query.
+7. Switch between graph and table views.
+8. Select a resource to inspect its details and relationships.
 
 ### Notes!
 
-> Infragraph gives visibility into supported infrastructure resources and the
-> relationships between them.
+> HCP Terraform Explorer summarizes workspace, run, version, module, provider,
+> and health information across the organization.
 >
-> Infragraph does not replace Terraform state, Terraform drift detection, or a
-> security scanner. It does not automatically fix infrastructure.
+> Infragraph shows supported infrastructure resources and their relationships.
 >
-> Infragraph activation, connections, and graph queries currently depend on
-> the HCP web experience. There is no documented supported CLI workflow for
-> this demonstration.
+> They do not replace Terraform state, policy enforcement, security scanning,
+> or drift remediation.
 >
-> Because this workshop is command-line only, Infragraph remains a short
-> conceptual overview. We do not perform a live Infragraph demonstration or
-> use undocumented private endpoints.
+> Infragraph data is synchronized. It is not a real-time control plane and it
+> does not automatically fix infrastructure.
 
 ## Part 3: Attendee hands-on practice
 
@@ -1537,27 +1017,21 @@ If you do not know a Vault security answer, read this:
 
 ## Official references
 
-- [Terraform overview](https://developer.hashicorp.com/terraform/intro)
-- [HCP Terraform](https://developer.hashicorp.com/terraform/cloud-docs)
-- [HCP Terraform API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs)
-- [HCP Terraform runs API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/run)
-- [HCP Terraform plans API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/plans)
-- [HCP Terraform applies API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/applies)
-- [HCP Terraform assessment results API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/assessment-results)
-- [HCP Terraform task stages API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/tasks/task-stages-and-results)
-- [HCP Terraform and Terraform Enterprise provider](https://registry.terraform.io/providers/hashicorp/tfe/latest/docs)
-- [Terraform import](https://developer.hashicorp.com/terraform/language/import)
-- [Generated import configuration](https://developer.hashicorp.com/terraform/language/import/generating-configuration)
-- [Vault Terraform provider tutorial](https://developer.hashicorp.com/vault/tutorials/get-started/learn-terraform)
-- [Manage Vault with Terraform](https://developer.hashicorp.com/vault/docs/configuration/programmatic-management)
+- [Create HCP Terraform workspaces](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/create)
+- [HCP Terraform UI and VCS run workflow](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/run/ui)
+- [HCP Terraform workspace settings](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/settings)
+- [Configure workspace VCS connections](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/settings/vcs)
 - [HCP Terraform Vault dynamic credentials](https://developer.hashicorp.com/terraform/cloud-docs/dynamic-provider-credentials/vault-configuration)
 - [HCP Terraform health assessments](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/health)
 - [HCP Terraform run tasks](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/settings/run-tasks)
-- [HCP Terraform private registry](https://developer.hashicorp.com/terraform/cloud-docs/registry)
+- [View policy enforcement results](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/policy-enforcement/view-results)
+- [Publish private modules](https://developer.hashicorp.com/terraform/cloud-docs/registry/publish-modules)
+- [HCP Terraform Explorer](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/explorer)
+- [Infragraph Graph Explorer](https://developer.hashicorp.com/hcp/docs/infragraph/view/explorer)
+- [Jenkins Pipeline from source control](https://www.jenkins.io/doc/book/pipeline/getting-started/)
+- [Vault Terraform provider tutorial](https://developer.hashicorp.com/vault/tutorials/get-started/learn-terraform)
+- [Manage Vault with Terraform](https://developer.hashicorp.com/vault/docs/configuration/programmatic-management)
 - [HCP Terraform project best practices](https://developer.hashicorp.com/terraform/cloud-docs/projects/best-practices)
-- [Infragraph](https://developer.hashicorp.com/hcp/docs/infragraph)
-- [GitHub CLI pull requests](https://cli.github.com/manual/gh_pr)
-- [Jenkins remote access API](https://www.jenkins.io/doc/book/using/remote-access-api/)
 
 ## Navigation
 
