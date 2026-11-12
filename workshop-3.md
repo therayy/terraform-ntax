@@ -1,1493 +1,566 @@
-# Workshop 3 Replica Lab
+# Workshop 3 Replica: GitHub + Jenkins + HCP Terraform + Vault + Drift
 
-## GitHub, Jenkins, HCP Terraform, Vault OIDC, and Drift Detection
+## Goal
 
-This is a clean duplicate of the Workshop 3 lab.
+Repeat Workshop 3 without overwriting the original lab. We will build a new Vault KV mount, validate code with Jenkins, use HCP Terraform to apply changes with short-lived Vault credentials, then find and repair a manual change (drift).
 
-It uses new names so it does not collide with the first lab.
+**How to read this guide:** `UI` means click in an app. `CLI` means run the command in VS Code Terminal. Each **Why** line is a short explanation you can say during the workshop.
 
-Use this guide from top to bottom during the workshop.
+**Important:** This demo assumes the same existing `terraform-ntax` GitHub repository, HCP Terraform organization `nutx`, and running local development Vault at `http://127.0.0.1:8200`. It creates *new* resources inside them. Do not create a new HCP organization or a second Vault server just for the duplicate.
 
-> Speaker note
->
-> Today we will move one Vault change from Git to Jenkins, through HCP Terraform, and into Vault.
->
-> Jenkins will validate and scan the code. HCP Terraform will own the authoritative plan, state, approval, and apply.
+## The new names
 
-## What the lab creates
-
-| Item | New name |
+| Part | New name |
 | --- | --- |
-| HCP Terraform organization | `ray-ntnx-vault-replica` |
-| HCP Terraform project | `Replica Secrets Lab` |
-| HCP Terraform workspace | `vault-replica-dev` |
-| Git branch | `replica-vault-delivery` |
-| Terraform working directory | `training-evidence/workshop-3-replica/vault-control` |
-| Jenkinsfile | `jenkins/Jenkinsfile.workshop3-replica` |
-| Jenkins job | `replica-vault-ci` |
-| HCP Terraform Agent pool | `replica-private-runners` |
-| HCP Terraform Agent | `replica-mac-runner` |
-| Podman Agent container | `hcp-agent-replica` |
-| Vault JWT auth path | `replica-oidc` |
-| Vault policy | `replica-vault-admin` |
-| Vault JWT role | `replica-hcp-role` |
-| Terraform resource address | `vault_mount.replica_store` |
-| Vault KV mount | `session-two-kv` |
-| Terraform output | `replica_store_path` |
+| Folder | `workshop-3-replica` |
+| First Git branch | `workshop3-blueprint-setup` |
+| Demo change branch | `workshop3-blueprint-change` |
+| Jenkins Multibranch job | `vault-blueprint-ci` |
+| Jenkinsfile | `workshop-3-replica/jenkins/Jenkinsfile` |
+| HCP organization (existing) | `nutx` |
+| HCP project | `Vault Blueprint Lab` |
+| HCP workspace | `vault-blueprint-dev` |
+| HCP Agent pool | `vault-blueprint-agents` |
+| Agent container | `tfc-blueprint-runner` |
+| Vault JWT auth path | `blueprint-jwt` |
+| Vault OIDC run role | `tfc-blueprint-demo` |
+| Vault ACL policy | `tfc-blueprint-mount` |
+| Terraform resource | `vault_mount.blueprint_kv` |
+| New Vault KV mount | `blueprint-app-kv` |
+| Terraform output | `blueprint_mount_path` |
 
-Important: HCP Terraform organization names must be unique. If `ray-ntnx-vault-replica` is unavailable, append a unique suffix. You must use that exact final name in the Vault JWT role.
-
-This guide assumes the new organization has HCP Terraform Agent access. Confirm the **Agents** page is available before configuring Vault. If it is unavailable, use a new project and workspace inside the existing Agent-enabled organization, then replace `ray-ntnx-vault-replica` everywhere in this guide and in the Vault JWT role. Do not mix organization names.
-
-## Product-defined names that cannot be renamed
-
-These keys are defined by HCP Terraform. Keep them exactly as written:
+### Workflow at a glance
 
 ```text
-TFC_AGENT_TOKEN
-TFC_AGENT_NAME
-TFC_VAULT_PROVIDER_AUTH
-TFC_VAULT_ADDR
-TFC_VAULT_RUN_ROLE
-TFC_VAULT_AUTH_PATH
+VS Code: change files and run checks
+     -> GitHub: create pull request
+     -> Jenkins: format, validate, Trivy
+     -> HCP Terraform: speculative plan
+     -> GitHub: approve and merge
+     -> HCP Terraform Agent: final plan and approved apply
+     -> Vault: verify the new KV mount
+     -> HCP Terraform Health: find drift and repair it
 ```
 
-The values assigned to those keys are new for this replica lab.
+## Before you begin
 
-## Dependencies intentionally reused
+You need VS Code, Git, Terraform, Trivy, Vault CLI, Podman, access to the existing repository and HCP organization, a running **disposable** Vault environment, and permission to create Jenkins jobs and Vault policies. Your Jenkins build agent must have Terraform and Trivy installed. You must have a HCP Terraform plan that supports Agents and, for the drift section, health assessments.
 
-| Dependency | Reused value | Reason |
-| --- | --- | --- |
-| GitHub repository | `therayy/terraform-ntax` | The replica uses a new branch, file path, and Jenkinsfile inside the same training repository |
-| Local Vault endpoint | `http://127.0.0.1:8200` | The replica uses a new auth path, policy, role, and KV mount on the same disposable server |
-| Jenkins controller | Existing local Jenkins | The replica creates a separate Multibranch Pipeline job |
-
-Everything created by this lab has a new name. Only these shared training dependencies are reused.
-
-## Workshop timeline
-
-| Time | Activity | Outcome |
-| --- | --- | --- |
-| 0:00-0:10 | Explain the workflow and names | Everyone understands tool ownership |
-| 0:10-0:30 | Create Terraform and Jenkins files | New code is ready locally |
-| 0:30-0:45 | Run local checks | Formatting, validation, and scanning pass |
-| 0:45-1:00 | Configure Vault JWT trust | HCP Terraform can request short-lived Vault access |
-| 1:00-1:10 | Break | 10-minute break |
-| 1:10-1:25 | Create the Agent pool and Agent | Private Vault connectivity is ready |
-| 1:25-1:40 | Create the HCP Terraform workspace | VCS, variables, and execution mode are ready |
-| 1:40-1:50 | Create the Jenkins job and pull request | Both checks run on the branch |
-| 1:50-2:00 | Apply, verify, and demonstrate drift | Vault is managed and drift is visible |
-
-## Architecture
-
-```mermaid
-flowchart TD
-    A["Git branch and pull request"] --> B["Jenkins validation and scan"]
-    A --> C["HCP speculative plan"]
-    B --> D["Review and merge"]
-    C --> D
-    D --> E["HCP final plan and approval"]
-    E --> F["Private Agent"]
-    F --> G["Vault API"]
-```
-
-> Speaker note
->
-> Git stores the desired configuration. Jenkins checks the code. HCP Terraform plans and applies it. The Agent provides network access to Vault. OIDC provides authentication to Vault.
-
-## Repository tree
-
-```text
-terraform-ntax/
-|-- jenkins/
-|   `-- Jenkinsfile.workshop3-replica
-`-- training-evidence/
-    `-- workshop-3-replica/
-        `-- vault-control/
-            |-- main.tf
-            `-- .terraform.lock.hcl
-```
-
-## Safety rules
-
-1. Do not commit a Vault token, HCP Terraform Agent token, `.env` file, state file, or plan file.
-2. Do not add `VAULT_TOKEN` to HCP Terraform workspace variables.
-3. Add all `TFC_VAULT_*` values as Environment variables, not Terraform variables.
-4. Jenkins must not run `terraform plan` against Vault or run `terraform apply`.
-5. HCP Terraform is the only system allowed to perform the authoritative plan and apply.
-6. Keep auto apply disabled.
-7. Use this only with the disposable development Vault server.
-
-> Speaker note
->
-> We are separating code checks from infrastructure execution. That gives us one state owner and one controlled apply path.
-
-## Preflight checklist
-
-Run:
-
-```bash
-git --version
-terraform version
-trivy --version
-vault version
-podman version
-```
-
-Confirm before the workshop:
-
-- [ ] Git, Terraform, Trivy, Vault CLI, and Podman run successfully.
-- [ ] Jenkins is available and can execute local shell commands.
-- [ ] The GitHub repository `therayy/terraform-ntax` is reachable.
-- [ ] The local Vault development server is available on port `8200`.
-- [ ] The HCP Terraform account can create organizations, projects, workspaces, and Agent pools.
-- [ ] The HCP Terraform plan supports Agents.
-- [ ] The plan supports health assessments, or you will use the normal-plan drift fallback.
-
-If a command is missing on macOS, install only the missing tool:
-
-```bash
-brew install git
-brew tap hashicorp/tap
-brew install hashicorp/tap/terraform
-brew install hashicorp/tap/vault
-brew install trivy
-brew install podman
-```
-
-Do not spend the workshop installing tools. Complete this check before the session.
+**Never copy a Vault token or HCP Agent token into Git, Jenkinsfile, screenshots, or normal HCP Terraform variables.** The HCP run authenticates through OIDC. A temporary admin Vault login is used only to prepare the demo.
 
 ---
 
-# Part 1: Prepare the local environment
+## Part A: Put a separate lab in Git (steps 1-9)
 
-## Step 1: Open the repository
+### Step 1. Open the correct project
 
-Run:
+**UI:** VS Code -> **File** -> **Open Folder** -> select `terraform-ntax`.
+
+**CLI:**
 
 ```bash
-cd /Users/ray/terraform-ntax
+pwd
 git status
+git remote -v
+```
+
+**Why:** Confirm you are in the right repository before changing anything.
+
+### Step 2. Start from a clean `main` branch
+
+**UI:** VS Code -> **Source Control** -> look at the current branch name.
+
+**CLI:**
+
+```bash
 git switch main
-git pull --ff-only
+git pull --ff-only origin main
 ```
 
-Expected result:
+**Why:** Starting from `main` keeps the previous pilot branch out of this duplicate. If Git reports uncommitted changes, commit or safely stash them first. Do not force-switch.
 
-- You are in `terraform-ntax`.
-- The current branch is `main`.
-- The working tree has no unexpected changes.
+### Step 3. Create a new setup branch
 
-Do not discard local changes that you do not recognize.
+**UI:** Click the branch name in VS Code -> **Create new branch** -> `workshop3-blueprint-setup`.
 
-> Speaker note
->
-> I am starting from the current main branch. I want the replica lab to be independent from the files used in the first run.
-
-## Step 2: Confirm Vault is running
-
-Use the host address from your local terminal:
+**CLI alternative:**
 
 ```bash
-export VAULT_ADDR="http://127.0.0.1:8200"
-unset VAULT_CACERT
-vault status
+git switch -c workshop3-blueprint-setup
 ```
 
-Expected result:
+**Why:** Your first PR will add the new lab files without touching the old workshop.
 
-```text
-Initialized     true
-Sealed          false
-```
+### Step 4. Add the replica files
 
-If Vault is not responding, stop here. The rest of the lab will fail.
+**UI:** Unzip this package. Drag the **whole** `workshop-3-replica` folder into the root of `terraform-ntax` in VS Code Explorer.
 
-### Enter the development token without saving it
-
-For macOS `zsh`:
+**CLI:**
 
 ```bash
-read -s "VAULT_TOKEN?Enter the development Vault token: "
-export VAULT_TOKEN
-echo
-vault token lookup
+ls workshop-3-replica
+ls workshop-3-replica/{jenkins,vault-configuration,vault-oidc}
 ```
 
-Do not place the token in a file. Do not commit it.
+**Why:** Keep the new demo in its own directory.
 
-> Speaker note
->
-> This root token is only for bootstrapping the disposable development server. HCP Terraform will not use this token. It will use a short-lived OIDC credential.
+### Step 5. Review the Terraform code
 
-## Step 3: Create the new branch and directories
+**UI:** VS Code Explorer -> `workshop-3-replica` -> `vault-configuration` -> `main.tf`.
 
-Run:
+**CLI:**
 
 ```bash
-git switch -c replica-vault-delivery
-
-mkdir -p training-evidence/workshop-3-replica/vault-control
-mkdir -p jenkins
+cat workshop-3-replica/vault-configuration/main.tf
 ```
 
-Expected branch:
+**Why:** This file manages only the new `blueprint-app-kv` engine. The empty Vault provider block is intentional because HCP Terraform supplies OIDC credentials.
 
-```text
-replica-vault-delivery
+### Step 6. Format the configuration
+
+**UI:** VS Code -> **Terminal** -> **New Terminal**.
+
+**CLI:**
+
+```bash
+terraform fmt -recursive workshop-3-replica/vault-configuration
+terraform fmt -check -recursive workshop-3-replica/vault-configuration
 ```
+
+**Why:** Formatting makes Terraform code consistent.
+
+### Step 7. Initialize and validate locally
+
+**CLI:**
+
+```bash
+terraform -chdir=workshop-3-replica/vault-configuration init -backend=false -input=false
+terraform -chdir=workshop-3-replica/vault-configuration validate
+```
+
+**Why:** This checks the configuration, but does not deploy anything or use HCP state.
+
+### Step 8. Run the security scan
+
+**CLI:**
+
+```bash
+trivy config --exit-code 1 --severity HIGH,CRITICAL workshop-3-replica/vault-configuration
+git diff --check
+```
+
+**Why:** Catch high-severity code issues before opening a PR. This scan does not replace plan policies or Vault ACLs.
+
+### Step 9. Push the setup and merge into `main`
+
+**UI:** VS Code -> **Source Control** -> review changes, then stage and commit. GitHub -> repository -> **Compare & pull request** -> base `main` -> review -> **Merge**.
+
+**CLI (if not committed in UI):**
+
+```bash
+git add workshop-3-replica
+git commit -m "Add separate Workshop 3 blueprint lab"
+git push -u origin workshop3-blueprint-setup
+```
+
+**Why:** The HCP workspace will follow `main`, so the new folder must first exist on `main`. If you already committed through VS Code, run only `git push -u ...`.
 
 ---
 
-# Part 2: Create the Terraform configuration
+## Part B: Prepare Vault OIDC (steps 10-16)
 
-## Step 4: Create `main.tf`
+### Step 10. Refresh local `main`
 
-Create this file:
+**UI:** VS Code -> click branch name -> select `main`.
 
-```text
-training-evidence/workshop-3-replica/vault-control/main.tf
-```
-
-Use this content:
-
-```hcl
-terraform {
-  required_version = ">= 1.5.0"
-
-  required_providers {
-    vault = {
-      source  = "hashicorp/vault"
-      version = "~> 5.0"
-    }
-  }
-}
-
-provider "vault" {}
-
-variable "replica_prefix" {
-  description = "Unique prefix for the replica workshop resources"
-  type        = string
-  default     = "session-two"
-
-  validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.replica_prefix))
-    error_message = "replica_prefix may contain only lowercase letters, numbers, and hyphens."
-  }
-}
-
-resource "vault_mount" "replica_store" {
-  path        = "${var.replica_prefix}-kv"
-  type        = "kv"
-  description = "Replica workshop KV managed through HCP Terraform"
-
-  options = {
-    version = "2"
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-output "replica_store_path" {
-  description = "Path of the replica KV version 2 secrets engine"
-  value       = vault_mount.replica_store.path
-}
-```
-
-### What this code does
-
-| Block | Purpose |
-| --- | --- |
-| `required_providers` | Downloads the HashiCorp Vault provider |
-| `provider "vault" {}` | Uses the Vault settings injected by HCP Terraform |
-| `replica_prefix` | Creates a unique lab name and validates it |
-| `vault_mount.replica_store` | Enables a KV version 2 secrets engine |
-| `prevent_destroy` | Blocks an accidental destroy or replacement |
-| `replica_store_path` | Displays the created mount path |
-
-Do not add `address`, `token`, or `namespace` to the provider block. HCP Terraform supplies the authentication data for the run.
-
-> Speaker note
->
-> The code declares one Vault resource. The provider connects Terraform to Vault. The resource tells Terraform to enable a KV version 2 secrets engine at `session-two-kv`.
->
-> The token is not in this file.
-
-## Step 5: Confirm `.gitignore`
-
-Make sure the repository `.gitignore` contains these entries:
-
-```gitignore
-**/.terraform/*
-*.tfstate
-*.tfstate.*
-*.tfplan
-.env
-**/.env
-```
-
-Do not ignore `.terraform.lock.hcl`.
-
-Check it:
+**CLI:**
 
 ```bash
-git check-ignore -v \
-  training-evidence/workshop-3-replica/vault-control/.terraform.lock.hcl \
-  || echo ".terraform.lock.hcl is not ignored"
+git switch main
+git pull --ff-only origin main
 ```
 
-Correct result:
+**Why:** Your local copy now has the files that GitHub merged.
 
-```text
-.terraform.lock.hcl is not ignored
-```
+### Step 11. Confirm local Vault is running
 
-> Speaker note
->
-> We commit the dependency lock file so every run selects the same provider version. We do not commit the downloaded provider directory or Terraform state.
+**UI:** Podman Desktop -> **Containers** -> confirm the existing Vault container is running.
 
----
-
-# Part 3: Create the Jenkins pipeline
-
-## Step 6: Create the new Jenkinsfile
-
-Create this file:
-
-```text
-jenkins/Jenkinsfile.workshop3-replica
-```
-
-Use this content:
-
-```groovy
-pipeline {
-  agent any
-
-  environment {
-    PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
-    TF_WORKING_DIR = "training-evidence/workshop-3-replica/vault-control"
-  }
-
-  stages {
-    stage('Verify required tools') {
-      steps {
-        sh '''
-          set -eu
-
-          command -v git
-          git --version
-
-          command -v terraform
-          terraform version
-
-          command -v trivy
-          trivy --version
-        '''
-      }
-    }
-
-    stage('Terraform format check') {
-      steps {
-        sh '''
-          set -eu
-          terraform fmt -check -recursive "${TF_WORKING_DIR}"
-        '''
-      }
-    }
-
-    stage('Terraform initialize and validate') {
-      steps {
-        sh '''
-          set -eu
-          terraform -chdir="${TF_WORKING_DIR}" init -backend=false -input=false
-          terraform -chdir="${TF_WORKING_DIR}" validate
-        '''
-      }
-    }
-
-    stage('Trivy configuration scan') {
-      steps {
-        sh '''
-          set -eu
-          trivy config \
-            --exit-code 1 \
-            --severity HIGH,CRITICAL \
-            "${TF_WORKING_DIR}"
-        '''
-      }
-    }
-  }
-
-  post {
-    success {
-      echo 'Replica validation passed. HCP Terraform may create the authoritative plan.'
-    }
-
-    failure {
-      echo 'Replica validation failed. Correct the branch before merge.'
-    }
-  }
-}
-```
-
-This pipeline does four things:
-
-1. Confirms Git, Terraform, and Trivy are available to the Jenkins agent.
-2. Checks Terraform formatting.
-3. Initializes without a backend and validates the configuration.
-4. Scans the Terraform directory with Trivy.
-
-It does not plan or apply Vault changes.
-
-> Speaker note
->
-> Jenkins is a quality gate. It does not own Terraform state and it does not apply to Vault.
-
----
-
-# Part 4: Run local checks
-
-## Step 7: Format, initialize, validate, and scan
-
-Run from the repository root:
-
-```bash
-cd /Users/ray/terraform-ntax
-
-terraform fmt -recursive
-
-terraform \
-  -chdir=training-evidence/workshop-3-replica/vault-control \
-  init -backend=false -input=false
-
-terraform \
-  -chdir=training-evidence/workshop-3-replica/vault-control \
-  validate
-
-trivy config \
-  --exit-code 1 \
-  --severity HIGH,CRITICAL \
-  training-evidence/workshop-3-replica/vault-control
-```
-
-Expected results:
-
-- Terraform initializes successfully.
-- Terraform reports `Success! The configuration is valid.`
-- Trivy reports zero high or critical findings.
-- `.terraform.lock.hcl` exists in the new working directory.
-
-Check the files:
-
-```bash
-git status --short
-```
-
-Do not stage the `.terraform/` directory.
-
-> Speaker note
->
-> These are the same checks Jenkins will repeat. Running them locally shortens the feedback loop.
-
----
-
-# Part 5: Configure Vault trust for HCP Terraform
-
-## Step 8: Reserve and record the exact HCP Terraform names
-
-Before configuring Vault, create the organization and project in HCP Terraform:
-
-1. Open the organization selector.
-2. Select **Manage Organizations**.
-3. Select **Create organization**.
-4. Try `ray-ntnx-vault-replica`.
-5. If it is unavailable, append a unique suffix.
-6. Confirm the new organization has an **Agents** page.
-7. Open **Projects**.
-8. Create `Replica Secrets Lab`.
-
-Now set the shell values to the exact names you created.
-
-Run:
-
-```bash
-export HCP_ORG="ray-ntnx-vault-replica"
-export HCP_PROJECT="Replica Secrets Lab"
-export HCP_WORKSPACE="vault-replica-dev"
-
-printf 'Organization: %s\nProject: %s\nWorkspace: %s\n' \
-  "$HCP_ORG" "$HCP_PROJECT" "$HCP_WORKSPACE"
-```
-
-If you used an organization suffix, change `HCP_ORG` before continuing.
-
-Names are case-sensitive. Spaces in the project name matter.
-
-> Speaker note
->
-> Vault will trust only a token whose organization, project, and workspace claims match these exact values.
-
-## Step 9: Enable a new JWT auth path
-
-Confirm that the host terminal is pointed at the local Vault server:
+**CLI:**
 
 ```bash
 export VAULT_ADDR="http://127.0.0.1:8200"
 vault status
+vault login -method=token
 ```
 
-Enable the new auth method:
+**Why:** Use your existing development Vault. `vault login` requests a temporary admin token for setup. Do not save that token in the repository.
+
+### Step 12. Check access from a Podman container
+
+**CLI:**
 
 ```bash
-vault auth enable -path=replica-oidc jwt
+podman run --rm docker.io/curlimages/curl:latest \
+  -sS -o /dev/null -w '%{http_code}\n' \
+  http://host.containers.internal:8200/v1/sys/health
 ```
 
-If Vault reports that the path is already in use, inspect it before continuing:
+**Why:** HCP Terraform's Agent runs inside a container. The Agent must be able to reach Vault. A Vault health HTTP status such as `200` confirms reachability; a network/connection error means fix the Podman network first.
+
+### Step 13. Create a new Vault JWT auth path
+
+**UI:** Vault UI -> **Access** -> **Auth Methods** -> **Enable new method** -> **JWT** -> path `blueprint-jwt` (if your Vault UI exposes that option).
+
+**CLI alternative:**
 
 ```bash
-vault auth list
+vault auth enable -path=blueprint-jwt jwt
 ```
 
-Do not overwrite an unknown auth configuration.
+**Why:** A separate JWT mount keeps the new OIDC demo away from `tfc-jwt`. If it already exists, do not enable it again.
 
-## Step 10: Configure Vault to trust HCP Terraform
+### Step 14. Trust HCP Terraform as the token issuer
 
-Run:
+**CLI:**
 
 ```bash
-vault write auth/replica-oidc/config \
+vault write auth/blueprint-jwt/config \
   oidc_discovery_url="https://app.terraform.io" \
   bound_issuer="https://app.terraform.io"
 ```
 
-Verify:
+**Why:** Vault must verify HCP Terraform's identity token instead of trusting an arbitrary token.
+
+### Step 15. Install the new Vault access policy
+
+**UI:** Vault UI -> **Policies** -> **ACL Policies** -> review the file `vault-oidc/blueprint-mount-policy.hcl`.
+
+**CLI:**
 
 ```bash
-vault read auth/replica-oidc/config
+vault policy write tfc-blueprint-mount \
+  workshop-3-replica/vault-oidc/blueprint-mount-policy.hcl
+vault policy read tfc-blueprint-mount
 ```
 
-Expected value:
+**Why:** Give the demo identity access to its own mount, not every secret in Vault.
 
-```text
-oidc_discovery_url    https://app.terraform.io
-```
+### Step 16. Create the new JWT role
 
-> Speaker note
->
-> Vault will use HCP Terraform's public identity information to verify each short-lived workload identity token.
+**UI:** VS Code -> open `vault-oidc/blueprint-jwt-role.json` and confirm that the `organization`, `project`, and `workspace` match the names in this guide.
 
-## Step 11: Create the new Vault policy
-
-Create a temporary policy file:
+**CLI:**
 
 ```bash
-tee /tmp/replica-vault-admin.hcl >/dev/null <<'EOF'
-path "auth/token/lookup-self" {
-  capabilities = ["read"]
-}
-
-path "auth/token/renew-self" {
-  capabilities = ["update"]
-}
-
-path "auth/token/revoke-self" {
-  capabilities = ["update"]
-}
-
-path "sys/mounts" {
-  capabilities = ["read", "list"]
-}
-
-path "sys/mounts/*" {
-  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
-}
-EOF
+vault write auth/blueprint-jwt/role/tfc-blueprint-demo \
+  @workshop-3-replica/vault-oidc/blueprint-jwt-role.json
+vault read auth/blueprint-jwt/role/tfc-blueprint-demo
 ```
 
-Write it to Vault:
-
-```bash
-vault policy write replica-vault-admin /tmp/replica-vault-admin.hcl
-vault policy read replica-vault-admin
-```
-
-This is a lab policy. In production, separate plan and apply permissions and narrow the allowed mount paths.
-
-> Speaker note
->
-> The policy controls what the short-lived HCP Terraform identity can do. Authentication proves who the run is. Authorization controls what that run may change.
-
-## Step 12: Create the new Vault JWT role
-
-Create the role file from the exact HCP names:
-
-```bash
-tee /tmp/replica-hcp-role.json >/dev/null <<EOF
-{
-  "policies": ["replica-vault-admin"],
-  "bound_audiences": ["vault.workload.identity"],
-  "bound_claims_type": "glob",
-  "bound_claims": {
-    "sub": "organization:${HCP_ORG}:project:${HCP_PROJECT}:workspace:${HCP_WORKSPACE}:run_phase:*"
-  },
-  "user_claim": "terraform_full_workspace",
-  "role_type": "jwt",
-  "token_ttl": "20m"
-}
-EOF
-```
-
-Review it before writing:
-
-```bash
-sed -n '1,120p' /tmp/replica-hcp-role.json
-```
-
-Write the role:
-
-```bash
-vault write \
-  auth/replica-oidc/role/replica-hcp-role \
-  @/tmp/replica-hcp-role.json
-```
-
-Verify it:
-
-```bash
-vault read auth/replica-oidc/role/replica-hcp-role
-```
-
-Confirm these values:
-
-| Setting | Expected value |
-| --- | --- |
-| `bound_audiences` | `vault.workload.identity` |
-| `bound_claims.sub` | Exact organization, project, and workspace names |
-| `policies` | `replica-vault-admin` |
-| `role_type` | `jwt` |
-| `token_ttl` | `20m` |
-
-Delete the local temporary files after verification:
-
-```bash
-rm -f /tmp/replica-vault-admin.hcl /tmp/replica-hcp-role.json
-```
-
-> Speaker note
->
-> This role accepts both plan and apply identities for one workspace. The star applies only to the run phase. It does not open access to other organizations, projects, or workspaces.
+**Why:** Only the named HCP workspace can request this Vault role. The JWT audience and full workspace identity must match exactly.
 
 ---
 
-# Part 6: Create the HCP Terraform organization and project
+## Part C: Create HCP Terraform workspace and Agent (steps 17-25)
 
-## Step 13: Confirm the new organization
+### Step 17. Select the existing HCP organization
 
-In HCP Terraform:
+**UI:** Open https://app.terraform.io -> choose organization `nutx`.
 
-1. Open the organization selector.
-2. Select the exact organization created in Step 8.
-3. Confirm the organization name matches `$HCP_ORG`.
-4. Confirm the **Agents** page is available.
+**Why:** We reuse the original HCP organization, but not the old project or workspace.
 
-If the names do not match, stop and update the Vault JWT role. The role and HCP organization must match exactly.
+### Step 18. Create a new project
 
-## Step 14: Connect GitHub to the new organization
+**UI:** **Projects** -> **New project** -> name `Vault Blueprint Lab` -> **Create**.
 
-In the new organization:
+**Why:** A project groups related workspaces. Every workspace still has separate state.
 
-1. Open **Settings**.
-2. Open **Version control** and **Providers**.
-3. Add or authorize the GitHub connection.
-4. Allow access to `therayy/terraform-ntax`.
-5. Confirm the repository appears when creating a VCS workspace.
+### Step 19. Create a new Agent pool
 
-> Speaker note
->
-> The VCS connection lets HCP Terraform read the configuration, create pull-request plans, and create the final run after merge.
+**UI:** Organization **Settings** -> **Agents** / **Agent pools** -> **Create agent pool** -> name `vault-blueprint-agents`. Create an Agent token and copy it **one time**.
 
-## Step 15: Confirm the project
+**Why:** The Agent will execute Terraform close to your private local Vault.
 
-1. Open **Projects**.
-2. Open `Replica Secrets Lab`.
-3. Confirm it belongs to the organization selected in Step 13.
+### Step 20. Start the new Agent container
 
----
-
-# Part 7: Create the private Agent
-
-## Step 16: Create a new Agent pool
-
-In HCP Terraform:
-
-1. Open **Settings**.
-2. Open **Agents**.
-3. Select **Create agent pool**.
-4. Name it `replica-private-runners`.
-5. Allow the `Replica Secrets Lab` project to use it.
-6. Create an Agent token.
-7. Copy the token once.
-
-Do not paste the Agent token into Git, the Jenkinsfile, the README, or the HCP workspace variables.
-
-## Step 17: Start a new Agent container
-
-In the macOS terminal, enter the Agent token without writing it to disk:
+**CLI (run in your Mac terminal):**
 
 ```bash
-read -s "TFC_AGENT_TOKEN?Paste the new HCP Terraform Agent token: "
+printf 'Paste the new HCP Agent token: '
+read -rs TFC_AGENT_TOKEN
+printf '\n'
 export TFC_AGENT_TOKEN
-echo
-```
+export TFC_AGENT_NAME="blueprint-lab-agent"
 
-Start the new Agent:
-
-```bash
-podman run -d \
-  --platform linux/amd64 \
-  --name hcp-agent-replica \
-  -e TFC_AGENT_TOKEN \
-  -e TFC_AGENT_NAME="replica-mac-runner" \
+podman run -d --name tfc-blueprint-runner --platform linux/amd64 \
+  -e TFC_AGENT_TOKEN -e TFC_AGENT_NAME \
   docker.io/hashicorp/tfc-agent:latest
-```
-
-Immediately remove the token from the host shell:
-
-```bash
 unset TFC_AGENT_TOKEN
 ```
 
-Check the container:
+**Why:** We start a second Agent with a different container name and pool token. Use an updated Agent version that supports Vault dynamic credentials.
+
+### Step 21. Confirm the Agent is online
+
+**UI:** HCP Terraform -> **Agent pools** -> `vault-blueprint-agents` -> check for an **Online** Agent.
+
+**CLI:**
 
 ```bash
-podman ps --filter name=hcp-agent-replica
-podman logs --tail=50 hcp-agent-replica
+podman ps --filter name=tfc-blueprint-runner
+podman logs --tail 30 tfc-blueprint-runner
 ```
 
-In HCP Terraform, confirm:
+**Why:** Do not continue until an Agent has connected successfully.
 
-- Agent pool: `replica-private-runners`
-- Agent name: `replica-mac-runner`
-- Status: idle or available
+### Step 22. Create the HCP Terraform workspace
 
-> Speaker note
->
-> The Agent polls HCP Terraform for work. No inbound connection to the laptop or Vault is required.
+**UI:** **Workspaces** -> **New workspace** -> **Version control workflow** -> choose the GitHub connection -> repository `terraform-ntax` -> project `Vault Blueprint Lab` -> workspace name `vault-blueprint-dev`.
 
-## Step 18: Verify Agent network access to Vault
+**Why:** Git is the source of truth for this separate workspace.
 
-Run this from another temporary container:
+### Step 23. Configure the workspace settings
 
-```bash
-podman run --rm \
-  docker.io/curlimages/curl:latest \
-  -fsS http://host.containers.internal:8200/v1/sys/health
-```
+**UI:** Workspace -> **Settings** -> **Version Control** / **General**:
 
-Expected fields:
+- VCS branch: `main`
+- Working directory: `workshop-3-replica/vault-configuration`
+- Execution mode: **Agent**
+- Agent pool: `vault-blueprint-agents`
+- Auto apply: **Off**
 
-```json
-{
-  "initialized": true,
-  "sealed": false
-}
-```
+**Why:** An authorized person must check the plan before deploying. Make sure the workspace is attached to the *new* directory, not the original Workshop 3 directory.
 
-The full response contains more fields. The important values are `initialized: true` and `sealed: false`.
+### Step 24. Add the OIDC environment variables
 
-Do not use `127.0.0.1:8200` in the HCP workspace. Inside a container, `127.0.0.1` points back to that container.
+**UI:** Workspace -> **Variables** -> **Add variable** -> select type **Environment variable** for each entry:
 
-> Speaker note
->
-> The Agent reaches the host Vault service through `host.containers.internal`. Network access is now proven before we start a Terraform run.
+| Key | Value |
+| --- | --- |
+| `TFC_VAULT_PROVIDER_AUTH` | `true` |
+| `TFC_VAULT_ADDR` | `http://host.containers.internal:8200` |
+| `TFC_VAULT_RUN_ROLE` | `tfc-blueprint-demo` |
+| `TFC_VAULT_AUTH_PATH` | `blueprint-jwt` |
+
+**Why:** These settings tell HCP Terraform how to get a temporary Vault login. Do **not** add `VAULT_TOKEN` or `TFC_VAULT_NAMESPACE` when using the root namespace of Vault OSS.
+
+### Step 25. Run the first plan and apply
+
+**UI:** Workspace -> **New run** -> **Plan and apply** -> review planned creation of `vault_mount.blueprint_kv` -> **Confirm & Apply**.
+
+**Why:** This creates the baseline in Vault and the first HCP state. If the workspace automatically started an initial run, open and approve that run instead of starting a duplicate.
 
 ---
 
-# Part 8: Create the HCP Terraform workspace
+## Part D: Verify Vault and set up Jenkins (steps 26-29)
 
-## Step 19: Create the VCS workspace
+### Step 26. Verify the Terraform-created Vault mount
 
-In the `ray-ntnx-vault-replica` organization:
+**UI:** Vault UI -> **Secrets Engines** -> look for `blueprint-app-kv`.
 
-1. Open **Projects**.
-2. Open `Replica Secrets Lab`.
-3. Select **New workspace**.
-4. Select **Version control workflow**.
-5. Select the connected GitHub provider.
-6. Select `therayy/terraform-ntax`.
-7. Name the workspace `vault-replica-dev`.
-8. Set the tracked branch to `main`.
-9. Set the Terraform working directory to:
+**CLI:**
 
-```text
-training-evidence/workshop-3-replica/vault-control
+```bash
+vault secrets list
+vault secrets list -detailed | grep -A 2 'blueprint-app-kv/'
 ```
 
-10. Create the workspace.
+**Why:** Confirm HCP Terraform really created the resource, not just a plan.
 
-The working directory is relative to the repository root. Do not enter `/Users/ray/...`.
+### Step 27. Create the Jenkins Multibranch job
 
-## Step 20: Configure workspace execution
+**UI:** Jenkins -> **New Item** -> enter `vault-blueprint-ci` -> **Multibranch Pipeline** -> **OK** -> **Branch Sources** -> add GitHub/Git repository `terraform-ntax`, credentials, and branch/PR discovery -> **Build Configuration** -> **by Jenkinsfile** -> Script Path `workshop-3-replica/jenkins/Jenkinsfile` -> **Save**.
 
-In the workspace:
+**Why:** Jenkins will find the pipeline in the new folder. You must have Jenkins Pipeline, Git/GitHub Branch Source support, and a build agent with Terraform and Trivy installed.
 
-1. Open **Settings**.
-2. Open **General**.
-3. Set **Execution Mode** to **Agent**.
-4. Select `replica-private-runners`.
-5. Disable **Auto apply**.
-6. Pin the Terraform version used for the workshop, such as `1.17.2`.
-7. Save the settings.
+### Step 28. Start a Jenkins scan and build
 
-If the UI offers automatic speculative plans for pull requests, keep them enabled.
+**UI:** Jenkins -> `vault-blueprint-ci` -> **Scan Multibranch Pipeline Now** -> open `main` -> **Build Now** (if no build started automatically).
 
-> Speaker note
->
-> This workspace has its own runs, variables, state, permissions, and history. The project groups the workspace. The project does not contain the state.
+**Why:** Jenkins runs code checks, but it does not apply Terraform.
 
-## Step 21: Add the Vault dynamic credential variables
+### Step 29. Read Jenkins results
 
-Open **Variables** in the workspace.
+**UI:** Jenkins -> job -> build number -> **Stage View** or **Console Output**.
 
-Add all four as **Environment variables**:
+**CLI (same checks locally):**
 
-| Key | Value | Category | Sensitive |
-| --- | --- | --- | --- |
-| `TFC_VAULT_PROVIDER_AUTH` | `true` | Environment | No |
-| `TFC_VAULT_ADDR` | `http://host.containers.internal:8200` | Environment | No |
-| `TFC_VAULT_RUN_ROLE` | `replica-hcp-role` | Environment | No |
-| `TFC_VAULT_AUTH_PATH` | `replica-oidc` | Environment | No |
-
-Do not add them as Terraform variables.
-
-Do not add `VAULT_TOKEN`.
-
-> Speaker note
->
-> These are HCP Terraform control variables. HCP Terraform uses them before the provider starts. That is why their category must be Environment.
-
-## Step 22: Configure VCS trigger paths
-
-In the workspace version-control settings, add these trigger patterns if the feature is available:
-
-```text
-/training-evidence/workshop-3-replica/vault-control/**
-/jenkins/Jenkinsfile.workshop3-replica
+```bash
+terraform fmt -check -recursive workshop-3-replica/vault-configuration
+terraform -chdir=workshop-3-replica/vault-configuration validate
+trivy config --exit-code 1 --severity HIGH,CRITICAL workshop-3-replica/vault-configuration
 ```
 
-This reduces unrelated runs from changes elsewhere in the repository.
+**Why:** All checks should pass before anyone merges a change.
 
 ---
 
-# Part 9: Commit and push the replica branch
+## Part E: Make one change, review it, and deploy (steps 30-35)
 
-## Step 23: Review exactly what will be committed
+### Step 30. Create a new feature branch
 
-Run:
+**UI:** VS Code -> bottom-left branch name -> **Create new branch** -> `workshop3-blueprint-change`.
 
-```bash
-cd /Users/ray/terraform-ntax
-
-git status --short
-
-git diff -- \
-  training-evidence/workshop-3-replica/vault-control/main.tf \
-  jenkins/Jenkinsfile.workshop3-replica \
-  .gitignore
-```
-
-Check for secrets before staging:
+**CLI alternative:**
 
 ```bash
-grep -R -nE \
-  'VAULT_TOKEN=|TFC_AGENT_TOKEN=|hvs\.|root-user-password' \
-  training-evidence/workshop-3-replica \
-  jenkins/Jenkinsfile.workshop3-replica \
-  || true
+git switch main
+git pull --ff-only origin main
+git switch -c workshop3-blueprint-change
 ```
 
-The search should not reveal a real secret value.
+**Why:** We want a PR to prove the complete review workflow.
 
-## Step 24: Stage and commit
+### Step 31. Change one safe field
 
-Run:
+**UI:** VS Code -> `workshop-3-replica/vault-configuration/main.tf` -> replace:
+
+```hcl
+description = "Workshop 3 blueprint baseline"
+```
+
+with:
+
+```hcl
+description = "Workshop 3 blueprint approved change"
+```
+
+**Why:** Changing only a description is easy to review and should avoid deleting the mount.
+
+### Step 32. Check, commit, and push the change
+
+**CLI:**
 
 ```bash
-git add \
-  .gitignore \
-  jenkins/Jenkinsfile.workshop3-replica \
-  training-evidence/workshop-3-replica/vault-control/main.tf \
-  training-evidence/workshop-3-replica/vault-control/.terraform.lock.hcl
-
-git status --short
-
-git commit -m "Add isolated Workshop 3 replica pipeline"
+terraform fmt -check -recursive workshop-3-replica/vault-configuration
+terraform -chdir=workshop-3-replica/vault-configuration validate
+trivy config --exit-code 1 --severity HIGH,CRITICAL workshop-3-replica/vault-configuration
+git diff --check
+git diff
+git add workshop-3-replica/vault-configuration/main.tf
+git commit -m "Update blueprint Vault mount description"
+git push -u origin workshop3-blueprint-change
 ```
 
-Do not continue if `.terraform/`, `.env`, a state file, or a token file is staged.
+**Why:** Check the code before the remote pipeline checks it again.
 
-## Step 25: Push the branch
+### Step 33. Open and review the pull request
 
-Run:
+**UI:** GitHub -> repository -> **Compare & pull request** -> base `main` -> create PR -> check Jenkins result -> open HCP Terraform speculative plan -> request code review.
+
+**Why:** Jenkins confirms code quality. A speculative HCP Terraform plan shows the proposed real-world change, but **cannot apply** it.
+
+### Step 34. Merge and approve the final run
+
+**UI:** GitHub -> **Merge pull request** after approval -> HCP Terraform -> `vault-blueprint-dev` -> open new run triggered from `main` -> review plan and any configured policy/run-task checks -> **Confirm & Apply**.
+
+**Why:** The final run is the real deployment. HCP Terraform manages state and history, not Jenkins.
+
+### Step 35. Confirm the result and enable health checks
+
+**UI:** Vault -> **Secrets Engines** -> `blueprint-app-kv` -> confirm description. HCP Terraform -> workspace -> **States** / **State** and **Runs**. Then **Settings** -> **Health** -> enable **Health assessments** -> **Save settings**.
+
+**CLI:**
 
 ```bash
-git push -u origin replica-vault-delivery
+vault secrets list -detailed | grep -A 2 'blueprint-app-kv/'
 ```
 
-Create the pull request with GitHub CLI:
-
-```bash
-gh pr create \
-  --base main \
-  --head replica-vault-delivery \
-  --title "Add isolated Workshop 3 replica pipeline" \
-  --body "Adds a separate Vault, Jenkins, HCP Terraform, Agent, OIDC, and drift lab configuration."
-```
-
-If `gh` is not authenticated, open the branch in GitHub and create the pull request in the UI.
-
-> Speaker note
->
-> The pull request is the review boundary. Jenkins checks the code, and HCP Terraform shows the expected Vault change before merge.
+**Why:** We verify the deployed value and turn on drift monitoring. On-demand health assessments require supported HCP Terraform plan and workspace permissions.
 
 ---
 
-# Part 10: Create the Jenkins job
+## Part F: Create drift and restore the desired state (steps 36-39)
 
-## Step 26: Create a new Multibranch Pipeline
+### Step 36. Make a controlled change outside Terraform
 
-In Jenkins:
+**UI:** Vault UI -> **Secrets Engines** -> `blueprint-app-kv` -> edit the description to `Manual drift test from Vault UI` (if the Vault UI allows editing the mount).
 
-1. Select **New Item**.
-2. Enter `replica-vault-ci`.
-3. Select **Multibranch Pipeline**.
-4. Select **OK**.
-5. Under **Branch Sources**, select **Add source** and **Git** or **GitHub**.
-6. Set the repository URL to:
-
-```text
-https://github.com/therayy/terraform-ntax.git
-```
-
-7. Add GitHub credentials only if the repository requires them.
-8. Under **Build Configuration**, set **Script Path** to:
-
-```text
-jenkins/Jenkinsfile.workshop3-replica
-```
-
-9. Save the job.
-10. Select **Scan Multibranch Pipeline Now**.
-11. Open the `replica-vault-delivery` branch build.
-12. Open **Console Output**.
-
-Expected result:
-
-```text
-Finished: SUCCESS
-```
-
-If the local Jenkins server cannot receive a GitHub webhook, use **Scan Multibranch Pipeline Now** after each push.
-
-## Step 27: Explain the Jenkins result
-
-Confirm all stages passed:
-
-- Verify required tools
-- Terraform format check
-- Terraform initialize and validate
-- Trivy configuration scan
-
-> Speaker note
->
-> A green Jenkins build means the code passed our selected checks. It does not mean Vault has changed. Only HCP Terraform can apply this configuration.
-
----
-
-# Part 11: Review and apply through HCP Terraform
-
-## Step 28: Review the speculative plan
-
-Open the pull request checks or the HCP Terraform workspace.
-
-Expected speculative plan:
-
-```text
-Plan: 1 to add, 0 to change, 0 to destroy.
-```
-
-Expected resource:
-
-```text
-vault_mount.replica_store
-```
-
-Expected output:
-
-```text
-replica_store_path = "session-two-kv"
-```
-
-If the plan proposes a destroy or replacement, stop. Do not merge.
-
-> Speaker note
->
-> This plan is a preview for review. A speculative plan cannot be applied.
-
-## Step 29: Merge the pull request
-
-Merge only after both are successful:
-
-- Jenkins branch build
-- HCP Terraform speculative plan
-
-After merge, HCP Terraform should create a new run from `main`.
-
-## Step 30: Review the final plan
-
-Open the new HCP Terraform run.
-
-Confirm:
-
-```text
-Plan: 1 to add, 0 to change, 0 to destroy.
-```
-
-Confirm the run uses:
-
-- Organization: `ray-ntnx-vault-replica`
-- Project: `Replica Secrets Lab`
-- Workspace: `vault-replica-dev`
-- Agent pool: `replica-private-runners`
-- Working directory: `training-evidence/workshop-3-replica/vault-control`
-
-Approve the apply manually.
-
-Expected result:
-
-```text
-Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
-```
-
-> Speaker note
->
-> The final plan is authoritative because it is based on the merged code. A human reviews it before the apply.
-
----
-
-# Part 12: Verify Vault and state
-
-## Step 31: Verify the Vault mount from the CLI
-
-Run:
+**CLI alternative:**
 
 ```bash
-export VAULT_ADDR="http://127.0.0.1:8200"
-
-vault secrets list | grep 'session-two-kv/'
-vault read sys/mounts/session-two-kv/tune
-```
-
-Expected mount:
-
-```text
-session-two-kv/    kv
-```
-
-Expected description:
-
-```text
-Replica workshop KV managed through HCP Terraform
-```
-
-## Step 32: Verify HCP Terraform state ownership
-
-In the HCP Terraform workspace:
-
-1. Open **States** or **Resources**.
-2. Confirm one managed resource exists.
-3. Confirm the resource address is `vault_mount.replica_store`.
-4. Confirm the current state version was created by the successful apply.
-
-> Speaker note
->
-> The Vault object and the Terraform state now agree. This workspace is the only workspace that should manage this mount.
-
----
-
-# Part 13: Drift detection demonstration
-
-## Step 33: Enable health assessments
-
-Health assessments require a successful applied run.
-
-In the HCP Terraform workspace:
-
-1. Open **Settings**.
-2. Open **Health**.
-3. Enable **Health Assessments**.
-4. Save the setting.
-
-If the plan does not include health assessments, skip to the normal-plan fallback in Step 36.
-
-> Speaker note
->
-> Drift detection compares the remote Vault configuration with the configuration and state known to Terraform. It reports drift. It does not automatically repair it.
-
-## Step 34: Create a safe out-of-band change
-
-Run this directly against Vault:
-
-```bash
-export VAULT_ADDR="http://127.0.0.1:8200"
-
 vault secrets tune \
-  -description="MANUAL CHANGE OUTSIDE TERRAFORM" \
-  session-two-kv/
+  -description="Manual drift test outside Terraform" \
+  blueprint-app-kv/
 ```
 
-Verify the manual change:
+**Why:** This simulates someone changing Vault without a Git pull request. Change only this disposable lab mount.
+
+### Step 37. Detect drift in HCP Terraform
+
+**UI:** HCP Terraform -> `vault-blueprint-dev` -> **Health** -> **Start health assessment** -> **Drift** -> open the changed resource.
+
+**Why:** Drift means real Vault configuration no longer matches Git. Health checks detect it; they do **not** fix it automatically.
+
+### Step 38. Restore the approved value
+
+**UI:** HCP Terraform -> workspace -> **New run** -> **Plan and apply** -> confirm the plan restores the description from Git -> **Confirm & Apply**.
+
+**Why:** We reject the manual change and return to the approved configuration. Do not edit Terraform state to hide drift.
+
+### Step 39. Recheck health and finish
+
+**UI:** HCP Terraform -> **Health** -> **Start health assessment** again -> verify drift is cleared. Open **Runs** and the latest state. Jenkins -> show successful pipeline history.
+
+**CLI:**
 
 ```bash
-vault read sys/mounts/session-two-kv/tune
+vault secrets list -detailed | grep -A 2 'blueprint-app-kv/'
+git status
 ```
 
-The description should now be:
-
-```text
-MANUAL CHANGE OUTSIDE TERRAFORM
-```
-
-This changes only the description. It does not delete the mount or its data.
-
-> Speaker note
->
-> I am making a controlled change outside Terraform. The code still declares the original description, so the real Vault configuration no longer matches the desired configuration.
-
-## Step 35: Run the health assessment
-
-In HCP Terraform:
-
-1. Open the workspace.
-2. Open **Health**.
-3. Open **Drift**.
-4. Select **Start health assessment**.
-5. Wait for the Agent to complete the assessment.
-
-Expected result:
-
-- One resource is drifted.
-- The drift is on `vault_mount.replica_store`.
-- The `description` value differs.
-
-Health assessments are asynchronous. They may not finish immediately.
-
-## Step 36: Use a normal plan as the immediate fallback
-
-If health assessment is unavailable or still scheduled, queue a normal HCP Terraform plan.
-
-Expected plan:
-
-```text
-Plan: 0 to add, 1 to change, 0 to destroy.
-```
-
-Expected change:
-
-```text
-description = "Replica workshop KV managed through HCP Terraform"
-```
-
-Do not use a local apply. Keep HCP Terraform as the state and apply owner.
-
-## Step 37: Repair the drift
-
-Review the plan and approve the HCP Terraform apply.
-
-Expected result:
-
-```text
-Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
-```
-
-Verify in Vault:
-
-```bash
-vault read sys/mounts/session-two-kv/tune
-```
-
-The description should again be:
-
-```text
-Replica workshop KV managed through HCP Terraform
-```
-
-Queue one more plan or health assessment.
-
-Expected final result:
-
-```text
-No changes. Your infrastructure matches the configuration.
-```
-
-> Speaker note
->
-> Terraform did not roll back a transaction. It detected a difference and performed a new controlled update to restore the declared configuration.
+**Why:** The workshop ends with a deployed, tracked, reviewed, and healthy configuration.
 
 ---
 
-# Part 14: Failure behavior and rollback explanation
-
-## What happens if an apply fails halfway
-
-Terraform apply is not an all-or-nothing transaction.
-
-If Vault accepts the first three resource operations and rejects the fourth:
-
-1. The successful Vault changes remain.
-2. Terraform records successful operations in state when it can.
-3. The apply stops and reports the failing resource.
-4. Terraform does not automatically reverse earlier successful operations.
-5. The next plan refreshes state and shows the remaining work or drift.
-
-`for_each` does not add transaction or rollback behavior.
-
-Postconditions can validate a resource after Terraform creates or reads it. They do not make a multi-resource apply atomic and they do not revert earlier changes.
-
-> Speaker note
->
-> Terraform is convergent, not transactional. After a partial failure, fix the cause, run a fresh plan, review the real state, and continue. Do not assume an automatic rollback happened.
-
-## Safe recovery sequence
-
-1. Stop issuing new applies.
-2. Read the failed run log.
-3. Verify the affected Vault objects with the Vault CLI.
-4. Run a new HCP Terraform plan.
-5. Import any object that exists remotely but is missing from state.
-6. Correct code, permissions, or connectivity.
-7. Review and approve the recovery plan.
-
-Do not manually delete a Vault mount that may contain secrets.
-
----
-
-# Part 15: Optional lab cleanup
-
-Do not clean up during the live session unless there is enough time.
-
-The safest workshop choice is to leave the replica in place for review.
-
-If the environment must be destroyed:
-
-1. Confirm the mount contains no needed data.
-2. Remove `prevent_destroy` in a pull request.
-3. Merge after Jenkins and HCP Terraform checks pass.
-4. Queue a destroy plan from the HCP Terraform workspace.
-5. Confirm the plan affects only `vault_mount.replica_store`.
-6. Approve the destroy.
-7. Stop the replica Agent container.
-
-Stop the Agent:
-
-```bash
-podman stop hcp-agent-replica
-```
-
-Do not delete state before the managed Vault object is handled.
-
----
-
-# Troubleshooting
-
-## `connection refused` for `127.0.0.1:8200`
-
-Cause: Vault is not running or the port is wrong.
-
-Check:
-
-```bash
-vault status
-podman ps
-```
-
-## Agent cannot reach Vault
-
-Cause: The HCP workspace uses the host address incorrectly.
-
-Correct value:
-
-```text
-http://host.containers.internal:8200
-```
-
-Test:
-
-```bash
-podman run --rm \
-  docker.io/curlimages/curl:latest \
-  -fsS http://host.containers.internal:8200/v1/sys/health
-```
-
-## `400 could not load configuration`
-
-Cause: The JWT auth path exists, but its OIDC discovery configuration is missing on the Vault server used by the Agent.
-
-Fix:
-
-```bash
-vault write auth/replica-oidc/config \
-  oidc_discovery_url="https://app.terraform.io" \
-  bound_issuer="https://app.terraform.io"
-```
-
-## `permission denied` during plan or apply
-
-Check:
-
-```bash
-vault policy read replica-vault-admin
-vault read auth/replica-oidc/role/replica-hcp-role
-```
-
-Confirm the role uses `replica-vault-admin` and the bound claim exactly matches the HCP organization, project, and workspace.
-
-## Warning about undeclared `TFC_VAULT_*` variables
-
-Cause: The variables were created as Terraform variables.
-
-Fix: Delete them and recreate them as Environment variables.
-
-## HCP Terraform cannot find the configuration
-
-Correct repository-relative working directory:
-
-```text
-training-evidence/workshop-3-replica/vault-control
-```
-
-Do not use an absolute macOS path.
-
-## Agent is offline
-
-Check:
-
-```bash
-podman ps --filter name=hcp-agent-replica
-podman logs --tail=100 hcp-agent-replica
-```
-
-Common causes:
-
-- The Agent token belongs to a different organization or pool.
-- The Agent container stopped.
-- The host cannot reach HCP Terraform.
-
-## Jenkins cannot find Terraform or Trivy
-
-Check the Jenkins Console Output.
-
-Confirm the tools are installed where the Jenkins service account can execute them:
-
-```bash
-command -v git
-command -v terraform
-command -v trivy
-```
-
-The Jenkinsfile adds Homebrew paths for macOS.
-
-## `.terraform.lock.hcl` is ignored
-
-Find the rule:
-
-```bash
-git check-ignore -v \
-  training-evidence/workshop-3-replica/vault-control/.terraform.lock.hcl
-```
-
-Remove the rule that ignores the lock file. Do not rely on `git add -f` as the permanent fix.
-
-## GitHub blocks the push because of a secret
-
-Do not bypass push protection.
-
-Remove the secret from the file and from every local commit that contains it. Rotate the credential if it was real.
-
-Never commit:
-
-- Vault root tokens
-- HCP Terraform Agent tokens
-- `.env` files
-- Terraform state files
-
-## Vault says the mount path already exists
-
-Do not destroy it automatically.
-
-Choose a new `replica_prefix`, or inspect and import the existing mount if it should be managed by this workspace.
-
----
-
-# Final completion checklist
-
-## Local files
-
-- [ ] `main.tf` uses `vault_mount.replica_store`
-- [ ] Jenkinsfile uses the replica working directory
-- [ ] `.terraform.lock.hcl` is committed
-- [ ] `.terraform/` is ignored
-- [ ] No token or state file is committed
-
-## Vault
-
-- [ ] JWT path is `replica-oidc`
-- [ ] OIDC discovery URL is configured
-- [ ] Policy is `replica-vault-admin`
-- [ ] Role is `replica-hcp-role`
-- [ ] Bound subject matches the exact HCP names
-
-## HCP Terraform
-
-- [ ] Organization is `ray-ntnx-vault-replica`
-- [ ] Project is `Replica Secrets Lab`
-- [ ] Workspace is `vault-replica-dev`
-- [ ] Working directory is repository-relative
-- [ ] Execution mode is Agent
-- [ ] Agent pool is `replica-private-runners`
-- [ ] Auto apply is disabled
-- [ ] All `TFC_VAULT_*` values are Environment variables
-- [ ] No `VAULT_TOKEN` variable exists
-
-## Jenkins and GitHub
-
-- [ ] Branch is `replica-vault-delivery`
-- [ ] Jenkins job is `replica-vault-ci`
-- [ ] Jenkins Script Path is correct
-- [ ] Jenkins passes formatting, validation, and Trivy scanning
-- [ ] HCP speculative plan passes before merge
-
-## Apply and drift
-
-- [ ] Final plan shows `1 to add, 0 to change, 0 to destroy`
-- [ ] Apply creates `session-two-kv`
-- [ ] HCP state contains one resource
-- [ ] Manual description change creates drift
-- [ ] Recovery plan shows `0 to add, 1 to change, 0 to destroy`
-- [ ] Final plan reports no changes
-
-## Final speaker close
-
-> We used Git for review, Jenkins for code validation, HCP Terraform for the authoritative plan and apply, an Agent for private connectivity, and OIDC for short-lived Vault authentication.
->
-> We also proved that an out-of-band Vault change creates drift and that remediation requires a reviewed Terraform run. Drift detection reports the problem. It does not automatically repair it.
+## If something fails
+
+| Symptom | Quick fix |
+| --- | --- |
+| `fatal: couldn't find remote ref <branch>` | The remote branch does not exist. Use `git push -u origin <branch>` first. |
+| Jenkins cannot find `Jenkinsfile` | Confirm the Script Path is `workshop-3-replica/jenkins/Jenkinsfile` and the file is on the branch being built. |
+| `terraform: command not found` in Jenkins | Install Terraform on the Jenkins build agent, not only on your Mac. |
+| `trivy: command not found` in Jenkins | Install Trivy on the Jenkins build agent. |
+| Agent offline | Check `podman logs tfc-blueprint-runner` and Agent pool token. |
+| HCP Terraform cannot reach Vault | Check the Agent's Podman network and `host.containers.internal:8200`. |
+| Vault `permission denied` | Check the Vault ACL policy and role bound claims. |
+| Vault JWT authentication rejected | Check issuer, audience, project/workspace names, `TFC_VAULT_AUTH_PATH`, and OIDC role. |
+| HCP Terraform shows no PR speculative plan | Confirm GitHub App/VCS connection, workspace VCS settings, PR access, and the working directory. |
+| HCP does not trigger on changes | Check branch `main`, the VCS trigger paths, and whether the workspace has completed its first run. |
+| Health/Drift option unavailable | Confirm the HCP plan, successful first apply, Agent execution, and workspace permissions. |
+| A run partially fails | Review the error, actual Vault resources, and HCP state. Fix and re-plan. Never assume a failed apply rolled everything back. |
+
+## Useful teaching points (short English)
+
+- **GitHub:** Where we review changes.
+- **Jenkins:** Checks the code; it does not deploy Vault.
+- **Terraform plan:** Shows what will change before approval.
+- **HCP Terraform:** Runs Terraform and keeps state and history.
+- **Agent:** Runs inside our private network and connects to Vault.
+- **OIDC:** Gives each run short-lived Vault access. No hard-coded token.
+- **Policy:** Defines what a run is allowed to do.
+- **Drift:** Finds differences between Git and the live Vault setup.
+- **Recovery:** Apply the approved Terraform configuration to restore the resource.
+
+## Workshop checklist
+
+- [ ] New folder copied to `terraform-ntax` and merged to `main`.
+- [ ] New Vault JWT auth path, policy, and role created.
+- [ ] New HCP project, Agent pool, and workspace created.
+- [ ] Initial apply created `blueprint-app-kv`.
+- [ ] Jenkins stages all passed.
+- [ ] PR showed a speculative plan.
+- [ ] Final run applied the approved change.
+- [ ] Manual drift was detected and repaired.
+
+## Optional discussion
+
+Explain how platform owners manage approved module versions, policy sets, RBAC, and Agent patterns, while application teams own their code and PRs. If available, open HCP Terraform Explorer to show workspace health. Infragraph is optional and requires a configured, supported account; it does not replace state, security scans, or drift detection. Do not create a second resource in another workspace pointing to the same Vault mount.
 
 ## Official references
 
-- [Vault dynamic credentials for HCP Terraform](https://developer.hashicorp.com/terraform/cloud-docs/dynamic-provider-credentials/vault-configuration)
-- [Install and run HCP Terraform Agents](https://developer.hashicorp.com/terraform/cloud-docs/agents/agents)
-- [HCP Terraform health assessments](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/health)
-- [Vault JWT authentication](https://developer.hashicorp.com/vault/docs/auth/jwt)
+- [HCP Terraform Vault dynamic provider credentials](https://developer.hashicorp.com/terraform/cloud-docs/dynamic-provider-credentials/vault-configuration)
+- [HCP Terraform Agents](https://developer.hashicorp.com/terraform/cloud-docs/agents/agents)
+- [HCP Terraform Health and drift](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/health)
+- [Jenkins Multibranch Pipeline](https://www.jenkins.io/doc/book/pipeline/multibranch/)
