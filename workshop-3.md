@@ -27,18 +27,9 @@ technical reference. Do not use older web-interface steps during this workshop.
 > We will also discuss how a central platform team can provide governance
 > without owning every other team's Terraform code.
 
-## Command-line-only delivery requirements
+## Workshop 3 command-line workflow
 
-### Notes!
-
-> This workshop is delivered from a terminal. We do not use the GitHub,
-> Jenkins, HCP Terraform, Vault, or HCP web interfaces.
->
-> The customer must provide the existing GitHub App or VCS connection, Agent
-> pool, HCP Terraform organization, Vault OIDC trust configuration, policies,
-> and run-task integration before the workshop. We configure and inspect them
-> through Terraform providers and APIs.
-
+```mermaid
 flowchart TD
     A["Change Terraform code"] --> B["Run local CLI checks"]
     B --> C{"Checks pass?"}
@@ -69,7 +60,104 @@ flowchart TD
 
     R -->|No| S["Deployment complete"]
     R -->|Yes| T["Create recovery pull request"]
-    T --> B****
+    T --> B
+```
+
+### Notes!
+
+> Everything starts with a Terraform code change.
+>
+> We validate and scan the code before it is merged.
+>
+> Jenkins performs code checks. HCP Terraform creates the authoritative plan
+> and performs the approved apply.
+>
+> We verify the result with the Vault CLI. If drift is detected, we correct it
+> through another reviewed code change.
+
+## Course repository structure
+
+```text
+terraform-ntax/
+├── README.md
+├── prerequisites.md
+│
+├── workshop-1.md
+├── workshop-2.md
+├── workshop-3.md
+│
+├── examples/
+│   ├── workshop-1/
+│   │   ├── provider.tf
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── outputs.tf
+│   │   └── terraform.tfvars.example
+│   │
+│   ├── workshop-2/
+│   │   ├── import/
+│   │   │   └── main.tf
+│   │   ├── moved-block/
+│   │   │   └── main.tf
+│   │   └── modules/
+│   │       └── legacy-mount/
+│   │           ├── main.tf
+│   │           ├── variables.tf
+│   │           └── outputs.tf
+│   │
+│   └── workshop-3/
+│       ├── bootstrap/
+│       │   ├── main.tf
+│       │   ├── variables.tf
+│       │   ├── outputs.tf
+│       │   └── terraform.tfvars.example
+│       ├── vault-configuration/
+│       │   ├── main.tf
+│       │   ├── variables.tf
+│       │   └── outputs.tf
+│       └── scripts/
+│           ├── verify-vault.sh
+│           ├── check-run.sh
+│           └── check-drift.sh
+│
+├── policies/
+│   ├── sentinel/
+│   └── vault/
+│
+├── jenkins/
+│   └── Jenkinsfile
+│
+└── modules/
+    └── vault-team/
+        ├── main.tf
+        ├── variables.tf
+        ├── outputs.tf
+        └── README.md
+```
+
+### Notes!
+
+> The root README is the landing page for all three workshops.
+>
+> Each workshop has its own guide and examples. Shared production modules stay
+> under `modules`. Workshop-specific lab code stays under `examples`.
+>
+> Policies and Jenkins configuration have their own top-level directories so
+> they can be reviewed and maintained separately.
+
+## Command-line-only delivery requirements
+
+### Notes!
+
+> This workshop is delivered from a terminal. We do not use the GitHub,
+> Jenkins, HCP Terraform, Vault, or HCP web interfaces.
+>
+> The customer must provide the existing GitHub App or VCS connection, Agent
+> pool, HCP Terraform organization, Vault OIDC trust configuration, policies,
+> and run-task integration before the workshop. We configure and inspect them
+> through Terraform providers and APIs.
+
+
 Required commands:
 
 ```bash
@@ -297,6 +385,32 @@ checkov -d . --framework terraform --compact
 ```
 
 ## Step 3: Create the development workspace from the terminal
+
+### HCP Terraform project, workspace, and state hierarchy
+
+```mermaid
+flowchart TD
+    A["HCP Terraform organization"] --> B["Vault project"]
+    B --> C["Development workspace"]
+    B --> D["Testing workspace"]
+    B --> E["Production workspace"]
+
+    C --> C1["Development state"]
+    D --> D1["Testing state"]
+    E --> E1["Production state"]
+```
+
+### Notes!
+
+> The organization is the top-level boundary.
+>
+> A project groups related workspaces and helps control access. The project
+> does not contain one shared state file.
+>
+> Each workspace has its own runs, variables, permissions, settings, and
+> state.
+>
+> One Vault resource must have only one owning workspace and one state file.
 
 ### In terminal
 
