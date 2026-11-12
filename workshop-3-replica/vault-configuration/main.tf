@@ -16,7 +16,7 @@ provider "vault" {}
 resource "vault_mount" "blueprint_kv" {
   path        = "blueprint-app-kv"
   type        = "kv"
-  description = "Workshop 3 blueprint approved change"
+  description = "Ray Playground"
 
   options = {
     version = "2"
